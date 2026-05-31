@@ -755,7 +755,7 @@ let orderCounter = 1000;
 let curCat='all', cart=[], selP=null, mQty=1;
 let appliedPromo=null, payMethod='card', deliveryType='delivery';
 let pendingOrderData=null;
-const BOT_USERNAME = 'dilux_bakery_bot'; // @BotFather dan olgan bot username
+const BOT_USERNAME = 'DiluxBakeryBot'; // @BotFather dan olgan bot username
 let editingProductId=null;
 
 function getEffectivePrice(p){
@@ -1005,10 +1005,18 @@ function showBotRedirect(order){
 
   // 2 soniyadan keyin Web App yopiladi va bot ochiladi
   setTimeout(()=>{
-    const url='https://t.me/'+BOT_USERNAME+'?start=order_'+order.id.replace('#','');
-    if(tg){
-      tg.openTelegramLink(url);
-      setTimeout(()=>tg.close(), 500);
+    try{
+      const orderJson=JSON.stringify(order);
+      const encoded=btoa(unescape(encodeURIComponent(orderJson))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+      const safe=encoded.substring(0,512);
+      const url='https://t.me/'+BOT_USERNAME+'?start=data_'+safe;
+      if(tg){
+        tg.openTelegramLink(url);
+        setTimeout(()=>tg.close(), 500);
+      }
+    }catch(e){
+      const url='https://t.me/'+BOT_USERNAME+'?start=order_'+order.id.replace('#','');
+      if(tg){ tg.openTelegramLink(url); setTimeout(()=>tg.close(),500); }
     }
   }, 2000);
 }

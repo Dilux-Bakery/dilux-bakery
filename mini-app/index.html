@@ -1002,6 +1002,15 @@ function showBotRedirect(order){
   // Savatni tozalash
   cart=[]; appliedPromo=null;
   renderBar(); renderP(filtered());
+
+  // 2 soniyadan keyin Web App yopiladi va bot ochiladi
+  setTimeout(()=>{
+    const url='https://t.me/'+BOT_USERNAME+'?start=order_'+order.id.replace('#','');
+    if(tg){
+      tg.openTelegramLink(url);
+      setTimeout(()=>tg.close(), 500);
+    }
+  }, 2000);
 }
 
 function openBot(){

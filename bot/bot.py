@@ -18,7 +18,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, CallbackQuery,
     InlineKeyboardMarkup, InlineKeyboardButton,
-    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo,
+    ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, ReplyKeyboardRemove,
 )
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ParseMode
@@ -62,6 +62,13 @@ def load_orders():
         with open(ORDERS_FILE, "r", encoding="utf-8") as f:
             orders = json.load(f)
         logger.info(f"📂 {len(orders)} ta buyurtma yuklandi")
+        # order_seq ni mavjud eng katta ID dan boshlaymiz
+        global order_seq
+        mx = 1000
+        for k in orders:
+            try: mx = max(mx, int(str(k).lstrip("#")))
+            except ValueError: pass
+        order_seq = mx
     except Exception as e:
         logger.error(f"Buyurtmalarni o'qishda xato: {e}")
 
@@ -75,6 +82,71 @@ class Status:
 
 def is_admin(uid):   return uid in ADMIN_IDS
 def is_courier(uid): return uid in COURIER_IDS
+
+# ═══════════════════════════════════════════════
+#   MAHSULOT KATALOGI (mini-app bilan bir xil id lar)
+#   Haqiqiy ro'yxat tayyor bo'lganda shu yerni yangilang.
+# ═══════════════════════════════════════════════
+PRODUCTS = {
+    1:  {"emoji": "🎂", "name": "Napoleon Tort",      "price": 150000},
+    2:  {"emoji": "🍰", "name": "Tiramisu",           "price": 120000},
+    3:  {"emoji": "🧁", "name": "Premium Kapkeyk",    "price": 28000},
+    4:  {"emoji": "🎂", "name": "Muss Tort",          "price": 200000},
+    5:  {"emoji": "🍮", "name": "Fransuz Ekler",      "price": 45000},
+    6:  {"emoji": "🍬", "name": "Assorted Konfet",    "price": 38000},
+    7:  {"emoji": "🍡", "name": "Marmelad",           "price": 22000},
+    8:  {"emoji": "🍭", "name": "Chupa Chups Mix",    "price": 15000},
+    9:  {"emoji": "🍪", "name": "Shokoladli Pechene", "price": 42000},
+    10: {"emoji": "🧇", "name": "Vafli Tort",         "price": 58000},
+    11: {"emoji": "🥐", "name": "Kruassan",           "price": 18000},
+    12: {"emoji": "🍦", "name": "Vanil Gelato",       "price": 20000},
+    13: {"emoji": "🍧", "name": "Meva Sorbe",         "price": 25000},
+    14: {"emoji": "🍫", "name": "Belgiya Shokoladi",  "price": 68000},
+    15: {"emoji": "🫖", "name": "Ichimlik Shokolad",  "price": 35000},
+    16: {"emoji": "🥤", "name": "Limonad",            "price": 22000},
+    17: {"emoji": "☕", "name": "Specialty Kofe",     "price": 28000},
+    18: {"emoji": "🧋", "name": "Boba Tea",           "price": 32000},
+}
+
+FREE_DELIVERY_MIN = 100000
+DELIVERY_FEE      = 10000
+
+def decode_cart(enc: str) -> list:
+    """'1-2_5-1' → [{id,emoji,name,price,qty}, ...]"""
+    cart = []
+    for part in enc.split("_"):
+        if "-" not in part:
+            continue
+        sid, sq = part.split("-", 1)
+        try:
+            pid, qty = int(sid), int(sq)
+        except ValueError:
+            continue
+        p = PRODUCTS.get(pid)
+        if not p or qty <= 0:
+            continue
+        cart.append({"id": pid, "emoji": p["emoji"], "name": p["name"], "price": p["price"], "qty": qty})
+    return cart
+
+def calc_delivery_fee(subtotal: int, delivery_type: str) -> int:
+    if delivery_type != "delivery":
+        return 0
+    return 0 if subtotal >= FREE_DELIVERY_MIN else DELIVERY_FEE
+
+order_seq = 1000
+def gen_order_id() -> str:
+    global order_seq
+    while True:
+        order_seq += 1
+        oid = f"#{order_seq}"
+        if oid not in orders:
+            return oid
+
+def cart_summary_text(cart: list) -> str:
+    return "\n".join(
+        f"  {i['emoji']} {i['name']} ×{i['qty']} — {i['price'] * i['qty']:,} so'm"
+        for i in cart
+    )
 
 def order_text(o: dict) -> str:
     items = "\n".join(
@@ -111,6 +183,11 @@ async def cmd_start(msg: Message):
     uid  = msg.from_user.id
     args = msg.text.split()
     deep = args[1] if len(args) > 1 else None
+
+    # ── PWA/brauzerdan kelgan savat (cart_1-2_5-1) ──
+    if deep and deep.startswith("cart_"):
+        await handle_cart_start(msg, deep[5:])
+        return
 
     if deep and deep.startswith("data_"):
         # Base64 encoded order ma'lumotlari
@@ -199,6 +276,100 @@ async def handle_order_start(msg: Message, order_id: str):
         f"To'lovni amalga oshirib,\n"
         f"📸 <b>Chek (skrinshot)</b> yuboring:"
     )
+
+# ═══════════════════════════════════════════════
+#   PWA/brauzerdan kelgan savat — bot'da rasmiylashtirish
+#   Oqim: savat → telefon → yetkazish → manzil → to'lov → chek → lokatsiya → admin
+# ═══════════════════════════════════════════════
+async def handle_cart_start(msg: Message, enc: str):
+    uid = msg.from_user.id
+    cart = decode_cart(enc)
+    if not cart:
+        await msg.answer("❌ Savat bo'sh yoki noto'g'ri. Iltimos, qaytadan tanlang."); return
+    subtotal = sum(i["price"] * i["qty"] for i in cart)
+    user_states[uid] = {
+        "step": "await_phone", "cart": cart, "subtotal": subtotal,
+        "name": msg.from_user.full_name or "Mijoz",
+    }
+    kb = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="📱 Raqamni yuborish", request_contact=True)]],
+        resize_keyboard=True, one_time_keyboard=True
+    )
+    await msg.answer(
+        f"🧺 <b>Savatingiz</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{cart_summary_text(cart)}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💰 Mahsulotlar: <b>{subtotal:,} so'm</b>\n\n"
+        f"Buyurtmani rasmiylashtiramiz 📝\n"
+        f"📞 <b>Telefon raqamingizni</b> yuboring\n"
+        f"<i>(pastdagi tugma orqali yoki qo'lda yozing)</i>:",
+        reply_markup=kb
+    )
+
+async def ask_delivery_type(msg: Message):
+    if msg.from_user.id in user_states:
+        user_states[msg.from_user.id]["step"] = "await_delivery"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🚗 Yetkazib berish", callback_data="neword_dlv:delivery"),
+        InlineKeyboardButton(text="🏃 O'zi olib ketish", callback_data="neword_dlv:pickup"),
+    ]])
+    await msg.answer("🚚 <b>Yetkazib berish turini</b> tanlang:", reply_markup=kb)
+
+async def ask_payment(bot_or_msg, chat_id: int):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💳 Karta", callback_data="neword_pay:card")],
+        [InlineKeyboardButton(text="📱 Click", callback_data="neword_pay:click"),
+         InlineKeyboardButton(text="🔵 Payme", callback_data="neword_pay:payme")],
+    ])
+    await bot.send_message(chat_id, "💳 <b>To'lov usulini</b> tanlang:", reply_markup=kb)
+
+async def finalize_new_order_intake(uid: int, chat_id: int):
+    """Telefon/yetkazish/manzil/to'lov yig'ilgach — buyurtma yaratib, chek so'raymiz."""
+    st = user_states.get(uid, {})
+    cart      = st.get("cart", [])
+    subtotal  = st.get("subtotal", 0)
+    dtype     = st.get("deliveryType", "delivery")
+    fee       = calc_delivery_fee(subtotal, dtype)
+    total     = subtotal + fee
+    order_id  = gen_order_id()
+    orders[order_id] = {
+        "id": order_id, "status": Status.PENDING, "user_id": uid,
+        "name": st.get("name", "Mijoz"), "phone": st.get("phone", "—"),
+        "address": st.get("address", "O'zi olib ketadi" if dtype == "pickup" else "—"),
+        "deliveryType": dtype, "payment": st.get("payment", "card"),
+        "promo": None, "items": cart, "deliveryFee": fee, "total": total,
+        "time": datetime.now().strftime("%H:%M"),
+        "created_at": datetime.now().isoformat(),
+    }
+    save_orders()
+    user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
+    fee_line = "Bepul" if not fee else f"{fee:,} so'm"
+    await bot.send_message(
+        chat_id,
+        f"✅ Buyurtma qabul qilindi!\n"
+        f"🔖 ID: <b>{order_id}</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"{cart_summary_text(cart)}\n"
+        f"🚗 Yetkazish: {fee_line}\n"
+        f"💰 <b>Jami: {total:,} so'm</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💳 <b>To'lov ma'lumotlari:</b>\n"
+        f"💳 Karta: <code>{PAYMENT_CARD}</code>\n"
+        f"👤 Egasi: <b>{PAYMENT_NAME}</b>\n\n"
+        f"To'lovni amalga oshirib,\n"
+        f"📸 <b>Chek (skrinshot)</b> yuboring:"
+    )
+
+@dp.message(F.contact)
+async def handle_contact(msg: Message):
+    uid = msg.from_user.id
+    st = user_states.get(uid)
+    if not st or st.get("step") != "await_phone":
+        return
+    st["phone"] = msg.contact.phone_number
+    await msg.answer("✅ Rahmat!", reply_markup=ReplyKeyboardRemove())
+    await ask_delivery_type(msg)
 
 # ═══════════════════════════════════════════════
 #   Web App data
@@ -343,6 +514,35 @@ async def callback_handler(cb: CallbackQuery):
     uid  = cb.from_user.id
     data = cb.data
     await cb.answer()
+
+    # ── Mijoz: yetkazish turini tanladi ──
+    if data.startswith("neword_dlv:"):
+        st = user_states.get(uid)
+        if not st or st.get("step") != "await_delivery":
+            await cb.answer("Sessiya tugagan. /start bosing", show_alert=True); return
+        dtype = data.split(":", 1)[1]
+        st["deliveryType"] = dtype
+        try: await cb.message.edit_reply_markup(reply_markup=None)
+        except: pass
+        if dtype == "delivery":
+            st["step"] = "await_address"
+            await cb.message.answer("📍 <b>Manzilingizni</b> yozing (ko'cha, uy):")
+        else:
+            st["address"] = "O'zi olib ketadi"
+            st["step"] = "await_payment"
+            await ask_payment(bot, cb.message.chat.id)
+        return
+
+    # ── Mijoz: to'lov usulini tanladi ──
+    if data.startswith("neword_pay:"):
+        st = user_states.get(uid)
+        if not st or st.get("step") != "await_payment":
+            await cb.answer("Sessiya tugagan. /start bosing", show_alert=True); return
+        st["payment"] = data.split(":", 1)[1]
+        try: await cb.message.edit_reply_markup(reply_markup=None)
+        except: pass
+        await finalize_new_order_intake(uid, cb.message.chat.id)
+        return
 
     # ── Tasdiqlash ──
     if data.startswith("confirm:") and is_admin(uid):
@@ -691,6 +891,26 @@ async def cmd_orders(msg: Message):
     for o in list(orders.values())[-10:]:
         text += f"{status_emoji.get(o['status'],'❓')} <b>{o['id']}</b> — {o['name']} — {o['total']:,} so'm\n"
     await msg.answer(text)
+
+# ═══════════════════════════════════════════════
+#   Matnli qadamlar (telefon / manzil) — savat oqimi uchun
+#   MUHIM: bu handler oxirida turishi kerak (boshqa F.text tugmalaridan keyin)
+# ═══════════════════════════════════════════════
+@dp.message(F.text)
+async def text_steps(msg: Message):
+    uid = msg.from_user.id
+    st = user_states.get(uid)
+    if not st:
+        return
+    step = st.get("step")
+    if step == "await_phone":
+        st["phone"] = msg.text.strip()
+        await msg.answer("✅ Rahmat!", reply_markup=ReplyKeyboardRemove())
+        await ask_delivery_type(msg)
+    elif step == "await_address":
+        st["address"] = msg.text.strip()
+        st["step"] = "await_payment"
+        await ask_payment(bot, msg.chat.id)
 
 # ═══════════════════════════════════════════════
 #   MAIN

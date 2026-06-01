@@ -1301,9 +1301,18 @@ let deferredPrompt = null;
 const inTelegram = !!(tg && tg.initData !== undefined && tg.platform && tg.platform !== 'unknown');
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  });
+  if (inTelegram) {
+    // Telegram ichida SW KERAK EMAS — agar avval ro'yxatdan o'tgan bo'lsa,
+    // o'chiramiz (qora ekran muammosini oldini olish uchun).
+    navigator.serviceWorker.getRegistrations()
+      .then(rs => rs.forEach(r => r.unregister())).catch(()=>{});
+    if (window.caches) caches.keys().then(ks => ks.forEach(k => caches.delete(k))).catch(()=>{});
+  } else {
+    // Faqat brauzer / o'rnatilgan PWA da
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
 }
 
 // Android / Desktop Chrome — o'rnatish taklifi

@@ -1,22 +1,25 @@
-// Dilux Bakery — Service Worker (PWA offline + app-like)
-const CACHE = 'dilux-v4';
+// Dilux Bakery — Service Worker (xavfsiz, faqat brauzer/PWA uchun)
+// MUHIM: HTML/navigatsiya HECH QACHON keshlanmaydi — har doim tarmoqdan keladi,
+// shuning uchun "qora ekran" yoki eski versiya muammosi bo'lmaydi.
+const CACHE = 'dilux-v5';
 const ASSETS = [
-  './',
-  './index.html',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
   './icon-maskable-512.png',
-  './apple-touch-icon.png'
+  './apple-touch-icon.png',
+  './favicon-64.png'
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(() => {}));
 });
 
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -24,17 +27,17 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
-  // HTML uchun: avval tarmoq (yangi versiya), bo'lmasa kesh
-  if (req.mode === 'navigate') {
+  const accept = req.headers.get('accept') || '';
+  // Sahifa (HTML): doim tarmoqdan — keshlamaymiz
+  if (req.mode === 'navigate' || accept.includes('text/html')) {
     e.respondWith(
-      fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put('./index.html', copy));
-        return res;
-      }).catch(() => caches.match('./index.html'))
+      fetch(req).catch(() =>
+        new Response('<meta charset="utf-8"><h2 style="font-family:sans-serif;text-align:center;margin-top:40px">Internet aloqasi yo’q</h2>',
+          { headers: { 'Content-Type': 'text/html' } })
+      )
     );
     return;
   }
-  // Boshqa resurslar: avval kesh, bo'lmasa tarmoq
+  // Faqat statik resurslar (ikona/manifest): kesh, bo'lmasa tarmoq
   e.respondWith(caches.match(req).then(hit => hit || fetch(req)));
 });

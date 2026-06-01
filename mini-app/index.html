@@ -971,19 +971,43 @@ function placeOrder(){
   // Telegram'ga to'liq buyurtma ma'lumotini (mahsulotlar, telefon, summa)
   // sendData orqali yuboramiz — bu yagona ishonchli yo'l.
   // Deep-link (?start=...) Telegram'da 64 belgidan oshmaydi, buyurtma sig'maydi.
-  // initData tekshiruvi YO'Q — ba'zi qurilmalarda initData bo'sh bo'lsa ham
-  // sendData ishlaydi (Mini App bot tugmasi orqali ochilganda).
+  // MUHIM: sendData FAQAT bot ichidagi reply-klaviatura tugmasi
+  // ("🛍 Buyurtma berish") orqali ochilganda ishlaydi. Boshqa yo'l bilan
+  // ochilsa, sendData jimgina ishlamaydi (xato bermaydi) — shuning uchun
+  // pastda timer bilan tekshiramiz.
   if(tg && typeof tg.sendData === 'function'){
+    let sent=false;
     try{
       tg.sendData(JSON.stringify({action:'order_init',...order}));
-      // Telegram ilovani avtomatik yopadi, bot to'lov ma'lumotini ko'rsatadi.
-      cart=[]; appliedPromo=null; renderBar(); renderP(filtered());
-      return;
+      sent=true;
     }catch(e){}
+    if(sent){
+      cart=[]; appliedPromo=null; renderBar(); renderP(filtered());
+      // sendData ishlasa — Telegram ilovani darrov yopadi va bu timer o'chadi.
+      // Ilova yopilmasa = tugma orqali ochilmagan → foydalanuvchiga ko'rsatma.
+      setTimeout(showSendFailedHelp, 1800);
+      return;
+    }
   }
 
-  // Zaxira yo'l (brauzer yoki sendData ishlamasa) — bot'ga yo'naltirish ekrani
+  // Telegram tashqarisida (brauzer) — zaxira yo'naltirish ekrani
   showBotRedirect(order);
+}
+
+// sendData ishlamaganda (Mini App noto'g'ri ochilgan) ko'rsatma ekrani
+function showSendFailedHelp(){
+  const desc=document.getElementById('bot-redirect-desc');
+  if(desc) desc.textContent = lang==='uz'
+    ? "Buyurtma yuborilmadi. Mini App'ni bot ichidagi pastki \"🛍 Buyurtma berish\" tugmasi orqali oching va qayta urinib ko'ring."
+    : "Заказ не отправлен. Откройте Mini App через нижнюю кнопку \"🛍 Заказать\" в боте и попробуйте снова.";
+  document.getElementById('bot-steps').innerHTML = lang==='uz' ? `
+    <div class="bot-step"><div class="bot-step-num">1</div><div class="bot-step-text">Bu oynani yoping va botga qaytib <strong>/start</strong> bosing</div></div>
+    <div class="bot-step"><div class="bot-step-num">2</div><div class="bot-step-text">Pastdagi <strong>🛍 Buyurtma berish</strong> tugmasini bosing <em>(yuqoridagi menyu tugmasi emas!)</em></div></div>
+    <div class="bot-step"><div class="bot-step-num">3</div><div class="bot-step-text">Buyurtmani qayta tasdiqlang — endi bot chek so'raydi</div></div>` : `
+    <div class="bot-step"><div class="bot-step-num">1</div><div class="bot-step-text">Закройте это окно и нажмите <strong>/start</strong> в боте</div></div>
+    <div class="bot-step"><div class="bot-step-num">2</div><div class="bot-step-text">Нажмите нижнюю кнопку <strong>🛍 Заказать</strong> <em>(не кнопку меню сверху!)</em></div></div>
+    <div class="bot-step"><div class="bot-step-num">3</div><div class="bot-step-text">Подтвердите заказ снова — бот запросит чек</div></div>`;
+  document.getElementById('bot-redirect').classList.add('show');
 }
 
 function showBotRedirect(order){

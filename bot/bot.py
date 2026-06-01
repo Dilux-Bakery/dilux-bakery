@@ -68,6 +68,7 @@ def load_orders():
 class Status:
     PENDING    = "pending"
     CONFIRMED  = "confirmed"
+    READY      = "ready"
     ON_THE_WAY = "on_the_way"
     DELIVERED  = "delivered"
     CANCELLED  = "cancelled"
@@ -349,8 +350,13 @@ async def callback_handler(cb: CallbackQuery):
 
         o["status"] = Status.CONFIRMED
         save_orders()
+        # Admin xabariga "📦 Tayyor" tugmasi (kuryer hali yuborilmaydi)
+        ready_kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="📦 Tayyor", callback_data=f"ready:{order_id}")
+        ]])
         await cb.message.edit_text(
-            f"✅ <b>TASDIQLANDI</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}"
+            f"✅ <b>TASDIQLANDI</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}",
+            reply_markup=ready_kb
         )
         # Mijozga xabar
         if o.get("user_id"):
@@ -360,32 +366,100 @@ async def callback_handler(cb: CallbackQuery):
                     f"✅ <b>Buyurtmangiz tasdiqlandi!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━\n"
                     f"🔖 ID: <b>{order_id}</b>\n"
-                    f"🚗 Kuryer tez orada yo'lga chiqadi\n\n"
+                    f"👨‍🍳 Buyurtmangiz tayyorlanmoqda...\n\n"
                     f"📊 Holat: /buyurtmam"
                 )
             except: pass
 
-        # Kuryerlarga
-        ck = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🚗 Yo'lga chiqdim", callback_data=f"onway:{order_id}")
-        ]])
-        for courier_id in COURIER_IDS:
+    # ── Tayyor (admin bosadi) ──
+    elif data.startswith("ready:") and is_admin(uid):
+        order_id = data.split(":", 1)[1]
+        o = orders.get(order_id)
+        if not o: await cb.answer("Buyurtma topilmadi", show_alert=True); return
+        if o["status"] != Status.CONFIRMED: await cb.answer("Avval tasdiqlang", show_alert=True); return
+
+        o["status"] = Status.READY
+        save_orders()
+        is_delivery = o.get("deliveryType") == "delivery"
+
+        if is_delivery:
+            # Admin xabarini yangilash — endi kuryerga ketdi
+            await cb.message.edit_text(
+                f"📦 <b>TAYYOR — kuryerga yuborildi</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}"
+            )
+            if o.get("user_id"):
+                try:
+                    await bot.send_message(
+                        o["user_id"],
+                        f"📦 <b>Buyurtmangiz tayyor!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"🔖 ID: <b>{order_id}</b>\n"
+                        f"🚗 Kuryer tez orada yo'lga chiqadi\n\n"
+                        f"📊 Holat: /buyurtmam"
+                    )
+                except: pass
+            # Kuryerlarga
+            ck = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🚗 Yo'lga chiqdim", callback_data=f"onway:{order_id}")
+            ]])
+            for courier_id in COURIER_IDS:
+                try:
+                    await bot.send_message(
+                        courier_id,
+                        f"🚗 <b>YANGI YETKAZISH</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}",
+                        reply_markup=ck
+                    )
+                    if o.get("receipt_file_id"):
+                        await bot.send_photo(
+                            courier_id,
+                            o["receipt_file_id"],
+                            caption=f"📸 To'lov cheki — {order_id}\n👤 {o.get('name','—')}\n📞 {o.get('phone','—')}\n📍 {o.get('address','—')}"
+                        )
+                    if o.get("location"):
+                        await bot.send_location(courier_id, o["location"]["lat"], o["location"]["lon"])
+                except Exception as e:
+                    logger.error(f"Kuryer {courier_id}: {e}")
+        else:
+            # O'zi olib ketish — kuryer yo'q. Admin "Topshirildi" tugmasi, mijozga "olib keting"
+            handed_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="✅ Topshirildi", callback_data=f"handed:{order_id}")
+            ]])
+            await cb.message.edit_text(
+                f"📦 <b>TAYYOR — olib ketishga</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}",
+                reply_markup=handed_kb
+            )
+            if o.get("user_id"):
+                try:
+                    await bot.send_message(
+                        o["user_id"],
+                        f"📦 <b>Buyurtmangiz tayyor!</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"🔖 ID: <b>{order_id}</b>\n"
+                        f"🏪 Do'kondan olib ketishingiz mumkin\n\n"
+                        f"📊 Holat: /buyurtmam"
+                    )
+                except: pass
+
+    # ── Topshirildi (admin, o'zi olib ketish) ──
+    elif data.startswith("handed:") and is_admin(uid):
+        order_id = data.split(":", 1)[1]
+        o = orders.get(order_id)
+        if not o: return
+        o["status"] = Status.DELIVERED
+        save_orders()
+        await cb.message.edit_text(f"🎉 <b>TOPSHIRILDI</b> — {order_id}")
+        if o.get("user_id"):
             try:
                 await bot.send_message(
-                    courier_id,
-                    f"🚗 <b>YANGI YETKAZISH</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}",
-                    reply_markup=ck
+                    o["user_id"],
+                    f"🎉 <b>Buyurtmangiz topshirildi!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🔖 ID: <b>{order_id}</b>\n"
+                    f"💰 To'langan: {o.get('total',0):,} so'm\n\n"
+                    f"Xarid uchun katta rahmat! ✦\n"
+                    f"Dilux Bakery sizni kutadi 🎂"
                 )
-                if o.get("receipt_file_id"):
-                    await bot.send_photo(
-                        courier_id,
-                        o["receipt_file_id"],
-                        caption=f"📸 To'lov cheki — {order_id}\n👤 {o.get('name','—')}\n📞 {o.get('phone','—')}\n📍 {o.get('address','—')}"
-                    )
-                if o.get("location"):
-                    await bot.send_location(courier_id, o["location"]["lat"], o["location"]["lon"])
-            except Exception as e:
-                logger.error(f"Kuryer {courier_id}: {e}")
+            except: pass
 
     # ── Bekor qilish ──
     elif data.startswith("cancel:") and is_admin(uid):
@@ -465,7 +539,7 @@ async def callback_handler(cb: CallbackQuery):
 async def show_admin_panel(msg: Message):
     total   = len(orders)
     pending = sum(1 for o in orders.values() if o["status"] == Status.PENDING)
-    revenue = sum(o["total"] for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY, Status.DELIVERED])
+    revenue = sum(o["total"] for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.READY, Status.ON_THE_WAY, Status.DELIVERED])
     today   = sum(1 for o in orders.values() if o.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d")))
     admin_kb = ReplyKeyboardMarkup(
         keyboard=[
@@ -486,7 +560,9 @@ async def show_admin_panel(msg: Message):
     )
 
 async def show_courier_panel(msg: Message):
-    active_orders = [o for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY]]
+    active_orders = [o for o in orders.values()
+        if o["status"] in [Status.READY, Status.ON_THE_WAY]
+        and o.get("deliveryType") == "delivery"]
     delivered_today = sum(1 for o in orders.values()
         if o["status"] == Status.DELIVERED
         and o.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d")))
@@ -515,7 +591,9 @@ async def cmd_active_orders(msg: Message):
     if not (is_admin(uid) or is_courier(uid)):
         await msg.answer("⛔ Ruxsat yo'q"); return
 
-    active = [o for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY]]
+    active = [o for o in orders.values()
+        if o["status"] in [Status.READY, Status.ON_THE_WAY]
+        and o.get("deliveryType") == "delivery"]
     if not active:
         await msg.answer(
             "📭 <b>Hozircha faol buyurtma yo'q</b>\n\n"
@@ -528,15 +606,15 @@ async def cmd_active_orders(msg: Message):
         f"━━━━━━━━━━━━━━━━━━"
     )
     for o in active:
-        status_map = {Status.CONFIRMED: "✅ Tasdiqlangan", Status.ON_THE_WAY: "🚗 Yo'lda"}
+        status_map = {Status.READY: "📦 Tayyor", Status.ON_THE_WAY: "🚗 Yo'lda"}
         status_label = status_map.get(o["status"], o["status"])
         items_text = "\n".join(f"  {i['emoji']} {i['name']} ×{i['qty']}" for i in o.get("items", []))
 
         # Buyurtma xabari
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
-                text="🚗 Yo'lga chiqdim" if o["status"] == Status.CONFIRMED else "✅ Yetkazildi",
-                callback_data=f"{'onway' if o['status'] == Status.CONFIRMED else 'delivered'}:{o['id']}"
+                text="🚗 Yo'lga chiqdim" if o["status"] == Status.READY else "✅ Yetkazildi",
+                callback_data=f"{'onway' if o['status'] == Status.READY else 'delivered'}:{o['id']}"
             )
         ]])
         text = (
@@ -576,7 +654,8 @@ async def cmd_my_order(msg: Message):
     last = sorted(user_orders, key=lambda x: x.get("id",""), reverse=True)[0]
     status_map = {
         "pending":    ("⏳", "Tekshirilmoqda",     "Adminimiz tez orada ko'rib chiqadi"),
-        "confirmed":  ("✅", "Tasdiqlandi",         "Kuryer yo'lga chiqishga tayyor"),
+        "confirmed":  ("✅", "Tasdiqlandi",         "Buyurtmangiz tayyorlanmoqda"),
+        "ready":      ("📦", "Tayyor",              "Buyurtmangiz tayyor bo'ldi!"),
         "on_the_way": ("🚗", "Kuryer yo'lda",       "Tez orada yetkaziladi!"),
         "delivered":  ("🎉", "Yetkazildi",          "Xarid uchun rahmat! ✦"),
         "cancelled":  ("❌", "Bekor qilindi",       "Savollar uchun adminga murojaat qiling"),
@@ -604,7 +683,7 @@ async def cmd_orders(msg: Message):
         await msg.answer("⛔ Ruxsat yo'q"); return
     if not orders:
         await msg.answer("📭 Hali buyurtma yo'q"); return
-    status_emoji = {Status.PENDING:"⏳", Status.CONFIRMED:"✅", Status.ON_THE_WAY:"🚗", Status.DELIVERED:"🎉", Status.CANCELLED:"❌"}
+    status_emoji = {Status.PENDING:"⏳", Status.CONFIRMED:"✅", Status.READY:"📦", Status.ON_THE_WAY:"🚗", Status.DELIVERED:"🎉", Status.CANCELLED:"❌"}
     text = "<b>Oxirgi buyurtmalar:</b>\n━━━━━━━━━━━━━━━━━━\n"
     for o in list(orders.values())[-10:]:
         text += f"{status_emoji.get(o['status'],'❓')} <b>{o['id']}</b> — {o['name']} — {o['total']:,} so'm\n"
@@ -624,6 +703,7 @@ def get_status_label(status: str) -> str:
     return {
         "pending":    "⏳ Kutilmoqda",
         "confirmed":  "✅ Tasdiqlangan",
+        "ready":      "📦 Tayyor",
         "on_the_way": "🚗 Yo'lda",
         "delivered":  "🎉 Yetkazildi",
         "cancelled":  "❌ Bekor",
@@ -670,14 +750,14 @@ def build_history_text(order_list: list, period: str, status: str, page: int = 0
     chunk = list(reversed(filtered))[start:start + PAGE_SIZE]
 
     status_emoji = {
-        "pending": "⏳", "confirmed": "✅",
+        "pending": "⏳", "confirmed": "✅", "ready": "📦",
         "on_the_way": "🚗", "delivered": "🎉", "cancelled": "❌"
     }
     period_label = get_period_label(period)
     status_label = get_status_label(status)
 
     # Revenue
-    revenue = sum(o.get("total", 0) for o in filtered if o.get("status") in ["delivered", "confirmed", "on_the_way"])
+    revenue = sum(o.get("total", 0) for o in filtered if o.get("status") in ["delivered", "confirmed", "ready", "on_the_way"])
 
     text = (
         f"📊 <b>Buyurtmalar tarixi</b>\n"
@@ -715,7 +795,7 @@ def build_history_kb(period: str, status: str, page: int, total_pages: int) -> I
         ) for label, p in periods
     ]
     # Status tugmalari
-    statuses = [("⏳","pending"),("✅","confirmed"),("🚗","on_the_way"),("🎉","delivered"),("❌","cancelled"),("📋","all")]
+    statuses = [("⏳","pending"),("✅","confirmed"),("📦","ready"),("🚗","on_the_way"),("🎉","delivered"),("❌","cancelled"),("📋","all")]
     row2 = [
         InlineKeyboardButton(
             text=f"[{e}]" if s==status else e,

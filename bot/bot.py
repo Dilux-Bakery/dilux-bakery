@@ -23,7 +23,7 @@ from aiogram.filters import CommandStart, Command
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-from config import BOT_TOKEN, ADMIN_IDS, COURIER_IDS, MINI_APP_URL
+from config import BOT_TOKEN, ADMIN_IDS, COURIER_IDS, MINI_APP_URL, PAYMENT_CARD, PAYMENT_NAME
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",

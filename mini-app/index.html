@@ -962,6 +962,9 @@ function placeOrder(){
   };
   pendingOrderData=order;
 
+  // Mahalliy admin panelga qo'shish
+  orders.push({...order, status:'new'});
+
   // Telegram WebApp orqali data yuborish
   // tg.sendData - bot orqali ochilganda ishlaydi
   try{

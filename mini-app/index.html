@@ -1014,8 +1014,9 @@ function placeOrder(){
   // ("🛍 Buyurtma berish") orqali ochilganda ishlaydi. Boshqa yo'l bilan
   // ochilsa, sendData jimgina ishlamaydi (xato bermaydi) — shuning uchun
   // pastda timer bilan tekshiramiz.
-  const isTelegram = !!(tg && tg.platform && tg.platform !== 'unknown');
-  if(isTelegram && typeof tg.sendData === 'function'){
+  // Telegram ichida (mobil yoki desktop) — sendData ishlaydi.
+  // O'rnatilgan PWA (standalone) yoki oddiy brauzerda — Telegram yo'q, sendData ishlamaydi.
+  if(!isStandalone() && tg && typeof tg.sendData === 'function'){
     let sent=false;
     try{
       tg.sendData(JSON.stringify({action:'order_init',...order}));
@@ -1030,8 +1031,25 @@ function placeOrder(){
     }
   }
 
-  // Telegram tashqarisida (brauzer) — zaxira yo'naltirish ekrani
-  showBotRedirect(order);
+  // Telegram tashqarisida (PWA/brauzer) — buyurtmani JIM YO'QOTMAYMIZ:
+  // deep-link ma'lumotni tashiy olmaydi, shuning uchun aniq ko'rsatma beramiz.
+  showOrderInTelegram();
+}
+
+// PWA/brauzerda buyurtma berishga urinilganda — Telegramda berishni so'raymiz
+function showOrderInTelegram(){
+  const desc=document.getElementById('bot-redirect-desc');
+  if(desc) desc.textContent = lang==='uz'
+    ? "Buyurtma faqat Telegram bot orqali rasmiylashtiriladi. Botni oching va buyurtmani qayta bering."
+    : "Заказ оформляется только через Telegram-бот. Откройте бот и оформите заказ заново.";
+  document.getElementById('bot-steps').innerHTML = lang==='uz' ? `
+    <div class="bot-step"><div class="bot-step-num">1</div><div class="bot-step-text"><strong>📲 Botni ochish</strong> tugmasini bosing</div></div>
+    <div class="bot-step"><div class="bot-step-num">2</div><div class="bot-step-text">Botda <strong>/start</strong> bosing</div></div>
+    <div class="bot-step"><div class="bot-step-num">3</div><div class="bot-step-text">Pastdagi <strong>🛍 Buyurtma berish</strong> tugmasi orqali buyurtma bering</div></div>` : `
+    <div class="bot-step"><div class="bot-step-num">1</div><div class="bot-step-text">Нажмите <strong>📲 Открыть бот</strong></div></div>
+    <div class="bot-step"><div class="bot-step-num">2</div><div class="bot-step-text">Нажмите <strong>/start</strong> в боте</div></div>
+    <div class="bot-step"><div class="bot-step-num">3</div><div class="bot-step-text">Оформите заказ через нижнюю кнопку <strong>🛍 Заказать</strong></div></div>`;
+  document.getElementById('bot-redirect').classList.add('show');
 }
 
 // sendData ishlamaganda (Mini App noto'g'ri ochilgan) ko'rsatma ekrani
@@ -1100,8 +1118,10 @@ function showBotRedirect(order){
 }
 
 function openBot(){
-  const url = `https://t.me/${BOT_USERNAME}?start=order_${pendingOrderData?.id?.replace('#','')}`;
-  if(tg) tg.openTelegramLink(url);
+  // Oddiy bot havolasi — deep-link ma'lumot tashiy olmaydi (64 belgi limiti),
+  // shuning uchun foydalanuvchi botda "🛍 Buyurtma berish" tugmasi orqali beradi.
+  const url = `https://t.me/${BOT_USERNAME}`;
+  if(tg && tg.openTelegramLink) tg.openTelegramLink(url);
   else window.open(url,'_blank');
 }
 

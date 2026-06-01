@@ -11,6 +11,8 @@ Ishlatish:
 import json
 import logging
 import asyncio
+import base64
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import (
     Message, CallbackQuery,
@@ -82,6 +84,36 @@ async def cmd_start(msg: Message):
     args = msg.text.split()
     deep = args[1] if len(args) > 1 else None
 
+    if deep and deep.startswith("data_"):
+        # Base64 encoded order ma'lumotlari
+        encoded = deep.replace("data_", "")
+        try:
+            # Padding tiklash
+            padding = 4 - len(encoded) % 4
+            if padding != 4:
+                encoded += "=" * padding
+            encoded = encoded.replace("-", "+").replace("_", "/")
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            data = json.loads(decoded)
+            order_id = data.get("id", f"#unknown")
+            orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
+            user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
+            total = data.get("total", 0)
+            await msg.answer(
+                f"✅ Buyurtma qabul qilindi!\n"
+                f"🔖 ID: <b>{order_id}</b>\n\n"
+                f"💳 <b>To'lov ma'lumotlari:</b>\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"💳 Karta: <code>{PAYMENT_CARD}</code>\n"
+                f"👤 Egasi: <b>{PAYMENT_NAME}</b>\n"
+                f"💰 Summa: <b>{total:,} so'm</b>\n\n"
+                f"To'lovni amalga oshirib,\n"
+                f"📸 <b>Chek (skrinshot)</b> yuboring:"
+            )
+        except Exception as e:
+            await msg.answer("❌ Ma'lumot xato keldi. Qayta urinib ko'ring.")
+        return
+
     if deep and deep.startswith("order_"):
         order_id = "#" + deep.replace("order_", "")
         await handle_order_start(msg, order_id)
@@ -94,7 +126,10 @@ async def cmd_start(msg: Message):
 
     # Oddiy foydalanuvchi
     kb = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="🛍 Buyurtma berish", web_app=WebAppInfo(url=MINI_APP_URL))]],
+        keyboard=[
+            [KeyboardButton(text="🛍 Buyurtma berish", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [KeyboardButton(text="📦 Buyurtmam")]
+        ],
         resize_keyboard=True,
         persistent=True
     )
@@ -111,9 +146,16 @@ async def handle_order_start(msg: Message, order_id: str):
     if order_id in orders:
         orders[order_id]["user_id"] = uid
         user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
+        o_tmp = orders.get(order_id, {})
         await msg.answer(
             f"✅ Buyurtma ID: <b>{order_id}</b>\n\n"
-            f"📸 <b>To'lov chekingizni</b> (skrinshot) yuboring:"
+            f"💳 <b>To'lov ma'lumotlari:</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💳 Karta: <code>{PAYMENT_CARD}</code>\n"
+            f"👤 Egasi: <b>{PAYMENT_NAME}</b>\n"
+            f"💰 Summa: <b>{o_tmp.get('total',0):,} so'm</b>\n\n"
+            f"To'lovni amalga oshirib,\n"
+            f"📸 <b>Chek (skrinshot)</b> yuboring:"
         )
         return
     # Order hali kelmagan — pending ga qo'shamiz, web_app_data kutamiz
@@ -121,12 +163,29 @@ async def handle_order_start(msg: Message, order_id: str):
     user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
     await msg.answer(
         f"✅ Buyurtma ID: <b>{order_id}</b>\n\n"
-        f"📸 <b>To'lov chekingizni</b> (skrinshot) yuboring:"
+        f"💳 <b>To'lov ma'lumotlari:</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💳 Karta: <code>{PAYMENT_CARD}</code>\n"
+        f"👤 Egasi: <b>{PAYMENT_NAME}</b>\n\n"
+        f"To'lovni amalga oshirib,\n"
+        f"📸 <b>Chek (skrinshot)</b> yuboring:"
     )
 
 # ═══════════════════════════════════════════════
 #   Web App data
 # ═══════════════════════════════════════════════
+@dp.message(F.text == "📦 Buyurtmam")
+async def btn_my_order(msg: Message):
+    await cmd_my_order(msg)
+
+@dp.message(F.text == "📋 Tarix")
+async def btn_tarix(msg: Message):
+    await cmd_tarix(msg)
+
+@dp.message(F.text == "📦 Buyurtmalar")
+async def btn_orders(msg: Message):
+    await cmd_orders(msg)
+
 @dp.message(F.web_app_data)
 async def web_app_data(msg: Message):
     uid = msg.from_user.id
@@ -137,15 +196,24 @@ async def web_app_data(msg: Message):
 
     if data.get("action") == "order_init":
         order_id = data["id"]
-        orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid}
-        # Agar foydalanuvchi oldin deep link orqali kelgan bo'lsa
+        # Eski state ni tozalash (3-muammo hal)
+        user_states.pop(uid, None)
+        orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
         if uid in pending_orders:
             del pending_orders[uid]
+        delivery_type = data.get("deliveryType", "delivery")
         user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
+        total_amount = data.get("total", 0)
         await msg.answer(
             f"✅ Buyurtmangiz qabul qilindi!\n"
             f"🔖 ID: <b>{order_id}</b>\n\n"
-            f"📸 Endi <b>to'lov cheki</b> (skrinshot) yuboring:"
+            f"💳 <b>To'lov ma'lumotlari:</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💳 Karta: <code>{PAYMENT_CARD}</code>\n"
+            f"👤 Egasi: <b>{PAYMENT_NAME}</b>\n"
+            f"💰 Summa: <b>{total_amount:,} so'm</b>\n\n"
+            f"To'lovni amalga oshirib,\n"
+            f"📸 <b>Chek (skrinshot)</b> yuboring:"
         )
 
 # ═══════════════════════════════════════════════
@@ -175,7 +243,8 @@ async def handle_photo(msg: Message):
     o = orders[order_id]
     o["receipt_file_id"] = msg.photo[-1].file_id
 
-    if o.get("deliveryType") == "delivery":
+    delivery_type = o.get("deliveryType", "delivery")
+    if delivery_type == "delivery":
         user_states[uid]["step"] = "waiting_location"
         await msg.answer(
             "✅ Chek qabul qilindi!\n\n"
@@ -183,6 +252,7 @@ async def handle_photo(msg: Message):
             "<i>📎 Qo'shimcha → Lokatsiya</i>"
         )
     else:
+        # O'zi olib ketish - lokatsiya shart emas, to'g'ridan finalize
         user_states[uid]["step"] = "done"
         await finalize_order(msg, order_id)
 
@@ -208,6 +278,9 @@ async def handle_location(msg: Message):
 # ═══════════════════════════════════════════════
 async def finalize_order(msg: Message, order_id: str):
     o = orders[order_id]
+    uid = msg.from_user.id
+    # State ni tozalash - keyingi buyurtma uchun (3-muammo hal)
+    user_states.pop(uid, None)
     await msg.answer(
         f"🎉 Buyurtmangiz adminga yuborildi!\n"
         f"🔖 ID: <b>{order_id}</b>\n\n"
@@ -256,8 +329,14 @@ async def callback_handler(cb: CallbackQuery):
         # Mijozga xabar
         if o.get("user_id"):
             try:
-                await bot.send_message(o["user_id"],
-                    f"✅ Buyurtmangiz <b>{order_id}</b> tasdiqlandi!\nTez orada yetkaziladi 🚗")
+                await bot.send_message(
+                    o["user_id"],
+                    f"✅ <b>Buyurtmangiz tasdiqlandi!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🔖 ID: <b>{order_id}</b>\n"
+                    f"🚗 Kuryer tez orada yo'lga chiqadi\n\n"
+                    f"📊 Holat: /buyurtmam"
+                )
             except: pass
 
         # Kuryerlarga
@@ -272,7 +351,11 @@ async def callback_handler(cb: CallbackQuery):
                     reply_markup=ck
                 )
                 if o.get("receipt_file_id"):
-                    await bot.send_photo(courier_id, o["receipt_file_id"], caption=f"📸 Chek — {order_id}")
+                    await bot.send_photo(
+                        courier_id,
+                        o["receipt_file_id"],
+                        caption=f"📸 To'lov cheki — {order_id}\n👤 {o.get('name','—')}\n📞 {o.get('phone','—')}\n📍 {o.get('address','—')}"
+                    )
                 if o.get("location"):
                     await bot.send_location(courier_id, o["location"]["lat"], o["location"]["lon"])
             except Exception as e:
@@ -287,8 +370,13 @@ async def callback_handler(cb: CallbackQuery):
         await cb.message.edit_text(f"❌ <b>BEKOR QILINDI</b> — {order_id}")
         if o.get("user_id"):
             try:
-                await bot.send_message(o["user_id"],
-                    f"❌ Buyurtmangiz <b>{order_id}</b> bekor qilindi.\nSavollar: @dilux_admin")
+                await bot.send_message(
+                    o["user_id"],
+                    f"❌ <b>Buyurtmangiz bekor qilindi</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🔖 ID: <b>{order_id}</b>\n\n"
+                    f"Savollar uchun adminga murojaat qiling"
+                )
             except: pass
 
     # ── Yo'lga chiqdim ──
@@ -304,7 +392,16 @@ async def callback_handler(cb: CallbackQuery):
             ]])
         )
         if o.get("user_id"):
-            try: await bot.send_message(o["user_id"], f"🚗 Kuryer yo'lda! Buyurtma: <b>{order_id}</b>")
+            try:
+                await bot.send_message(
+                    o["user_id"],
+                    f"🚗 <b>Kuryer yo'lga chiqdi!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🔖 ID: <b>{order_id}</b>\n"
+                    f"📍 Manzil: {o.get('address','—')}\n"
+                    f"⏱ Tez orada yetkaziladi\n\n"
+                    f"📊 Holat: /buyurtmam"
+                )
             except: pass
         for admin_id in ADMIN_IDS:
             try: await bot.send_message(admin_id, f"🚗 <b>{order_id}</b> — kuryer yo'lga chiqdi")
@@ -318,8 +415,16 @@ async def callback_handler(cb: CallbackQuery):
         o["status"] = Status.DELIVERED
         await cb.message.edit_text(f"🎉 <b>YETKAZILDI</b> — {order_id}")
         if o.get("user_id"):
-            try: await bot.send_message(o["user_id"],
-                f"🎉 Buyurtmangiz <b>{order_id}</b> yetkazildi!\nRahmat! ✦ Dilux Bakery")
+            try:
+                await bot.send_message(
+                    o["user_id"],
+                    f"🎉 <b>Buyurtmangiz yetkazildi!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━\n"
+                    f"🔖 ID: <b>{order_id}</b>\n"
+                    f"💰 To'langan: {o.get('total',0):,} so'm\n\n"
+                    f"Xarid uchun katta rahmat! ✦\n"
+                    f"Dilux Bakery sizni kutadi 🎂"
+                )
             except: pass
         for admin_id in ADMIN_IDS:
             try: await bot.send_message(admin_id, f"🎉 <b>{order_id}</b> — yetkazildi ✅")
@@ -332,20 +437,136 @@ async def show_admin_panel(msg: Message):
     total   = len(orders)
     pending = sum(1 for o in orders.values() if o["status"] == Status.PENDING)
     revenue = sum(o["total"] for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY, Status.DELIVERED])
+    today   = sum(1 for o in orders.values() if o.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d")))
+    admin_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🛍 Mini App", web_app=WebAppInfo(url=MINI_APP_URL))],
+            [KeyboardButton(text="📋 Tarix"), KeyboardButton(text="📦 Buyurtmalar")]
+        ],
+        resize_keyboard=True, persistent=True
+    )
     await msg.answer(
         f"👨‍💼 <b>Admin Panel</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"📦 Jami: <b>{total}</b> buyurtma\n"
+        f"📅 Bugun: <b>{today}</b> ta\n"
         f"⏳ Kutilmoqda: <b>{pending}</b>\n"
-        f"💰 Daromad: <b>{revenue:,} so'm</b>"
+        f"💰 Daromad: <b>{revenue:,} so'm</b>\n\n"
+        f"📋 Tarix ko'rish: /tarix",
+        reply_markup=admin_kb
     )
 
 async def show_courier_panel(msg: Message):
-    active = sum(1 for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY])
+    active_orders = [o for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY]]
+    delivered_today = sum(1 for o in orders.values()
+        if o["status"] == Status.DELIVERED
+        and o.get("created_at","").startswith(datetime.now().strftime("%Y-%m-%d")))
+
+    courier_kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🗺 Faol buyurtmalar")],
+            [KeyboardButton(text="📋 Tarix"), KeyboardButton(text="📦 Buyurtmam")]
+        ],
+        resize_keyboard=True, persistent=True
+    )
     await msg.answer(
         f"🚗 <b>Kuryer Panel</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"📦 Faol yetkazishlar: <b>{active}</b>"
+        f"📦 Faol yetkazishlar: <b>{len(active_orders)}</b>\n"
+        f"🎉 Bugun yetkazildi: <b>{delivered_today}</b>\n\n"
+        f"🗺 Faol buyurtmalar: /faol\n"
+        f"📋 Tarix: /tarix",
+        reply_markup=courier_kb
+    )
+
+@dp.message(Command("faol"))
+@dp.message(F.text == "🗺 Faol buyurtmalar")
+async def cmd_active_orders(msg: Message):
+    uid = msg.from_user.id
+    if not (is_admin(uid) or is_courier(uid)):
+        await msg.answer("⛔ Ruxsat yo'q"); return
+
+    active = [o for o in orders.values() if o["status"] in [Status.CONFIRMED, Status.ON_THE_WAY]]
+    if not active:
+        await msg.answer(
+            "📭 <b>Hozircha faol buyurtma yo'q</b>\n\n"
+            "Yangi buyurtma kelganda sizga xabar yuboriladi!"
+        )
+        return
+
+    await msg.answer(
+        f"🗺 <b>Faol buyurtmalar</b> — {len(active)} ta\n"
+        f"━━━━━━━━━━━━━━━━━━"
+    )
+    for o in active:
+        status_map = {Status.CONFIRMED: "✅ Tasdiqlangan", Status.ON_THE_WAY: "🚗 Yo'lda"}
+        status_label = status_map.get(o["status"], o["status"])
+        items_text = "\n".join(f"  {i['emoji']} {i['name']} ×{i['qty']}" for i in o.get("items", []))
+
+        # Buyurtma xabari
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text="🚗 Yo'lga chiqdim" if o["status"] == Status.CONFIRMED else "✅ Yetkazildi",
+                callback_data=f"{'onway' if o['status'] == Status.CONFIRMED else 'delivered'}:{o['id']}"
+            )
+        ]])
+        text = (
+            f"{status_label} | <b>{o['id']}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"👤 {o.get('name','—')}\n"
+            f"📞 <code>{o.get('phone','—')}</code>\n"
+            f"📍 <b>{o.get('address','—')}</b>\n"
+            f"{'💬 ' + o['comment'] if o.get('comment') else ''}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"{items_text}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>{o.get('total',0):,} so'm</b>"
+        )
+        await msg.answer(text, reply_markup=kb)
+
+        # Lokatsiyani alohida yuborish
+        if o.get("location"):
+            await msg.answer_location(
+                latitude=o["location"]["lat"],
+                longitude=o["location"]["lon"]
+            )
+
+@dp.message(Command("buyurtmam"))
+async def cmd_my_order(msg: Message):
+    uid = msg.from_user.id
+    # Foydalanuvchining oxirgi buyurtmasini topish
+    user_orders = [o for o in orders.values() if o.get("user_id") == uid]
+    if not user_orders:
+        await msg.answer(
+            "📭 Sizda hali buyurtma yo'q\n\n"
+            "Buyurtma berish uchun 👇\n"
+            "<b>Buyurtma berish</b> tugmasini bosing!"
+        )
+        return
+    # Oxirgi buyurtma
+    last = sorted(user_orders, key=lambda x: x.get("id",""), reverse=True)[0]
+    status_map = {
+        "pending":    ("⏳", "Tekshirilmoqda",     "Adminimiz tez orada ko'rib chiqadi"),
+        "confirmed":  ("✅", "Tasdiqlandi",         "Kuryer yo'lga chiqishga tayyor"),
+        "on_the_way": ("🚗", "Kuryer yo'lda",       "Tez orada yetkaziladi!"),
+        "delivered":  ("🎉", "Yetkazildi",          "Xarid uchun rahmat! ✦"),
+        "cancelled":  ("❌", "Bekor qilindi",       "Savollar uchun adminga murojaat qiling"),
+    }
+    emoji, label, desc = status_map.get(last["status"], ("❓", "Noma'lum", ""))
+    items_text = "\n".join(
+        f"  {i['emoji']} {i['name']} ×{i['qty']}"
+        for i in last.get("items", [])
+    ) or "  —"
+    await msg.answer(
+        f"{emoji} <b>Buyurtma holati</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🔖 ID: <b>{last['id']}</b>\n"
+        f"📊 Holat: <b>{label}</b>\n"
+        f"💬 {desc}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🛍 Mahsulotlar:\n{items_text}\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"💰 Jami: <b>{last.get('total',0):,} so'm</b>"
     )
 
 @dp.message(Command("orders"))
@@ -363,6 +584,160 @@ async def cmd_orders(msg: Message):
 # ═══════════════════════════════════════════════
 #   MAIN
 # ═══════════════════════════════════════════════
+# ═══════════════════════════════════════════════
+#   TARIX — /tarix buyrug'i
+# ═══════════════════════════════════════════════
+
+def get_period_label(period: str) -> str:
+    return {"today": "📅 Bugun", "week": "📆 Hafta", "month": "🗓 Oy", "all": "📋 Hammasi"}.get(period, "📋")
+
+def get_status_label(status: str) -> str:
+    return {
+        "pending":    "⏳ Kutilmoqda",
+        "confirmed":  "✅ Tasdiqlangan",
+        "on_the_way": "🚗 Yo'lda",
+        "delivered":  "🎉 Yetkazildi",
+        "cancelled":  "❌ Bekor",
+        "all":        "📋 Barchasi",
+    }.get(status, status)
+
+def filter_orders_by_period(period: str) -> list:
+    now = datetime.now()
+    result = []
+    for o in orders.values():
+        order_time = o.get("created_at")
+        if not order_time:
+            if period == "all":
+                result.append(o)
+            continue
+        try:
+            dt = datetime.fromisoformat(order_time)
+        except:
+            result.append(o) if period == "all" else None
+            continue
+        if period == "today" and dt.date() == now.date():
+            result.append(o)
+        elif period == "week" and dt >= now - timedelta(days=7):
+            result.append(o)
+        elif period == "month" and dt >= now - timedelta(days=30):
+            result.append(o)
+        elif period == "all":
+            result.append(o)
+    return result
+
+def filter_by_status(order_list: list, status: str) -> list:
+    if status == "all":
+        return order_list
+    return [o for o in order_list if o.get("status") == status]
+
+def build_history_text(order_list: list, period: str, status: str, page: int = 0) -> tuple:
+    """Buyurtmalar ro'yxatini formatlash. (text, total_pages)"""
+    PAGE_SIZE = 5
+    filtered = filter_by_status(order_list, status)
+    total = len(filtered)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    chunk = list(reversed(filtered))[start:start + PAGE_SIZE]
+
+    status_emoji = {
+        "pending": "⏳", "confirmed": "✅",
+        "on_the_way": "🚗", "delivered": "🎉", "cancelled": "❌"
+    }
+    period_label = get_period_label(period)
+    status_label = get_status_label(status)
+
+    # Revenue
+    revenue = sum(o.get("total", 0) for o in filtered if o.get("status") in ["delivered", "confirmed", "on_the_way"])
+
+    text = (
+        f"📊 <b>Buyurtmalar tarixi</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🗓 Davr: {period_label} | {status_label}\n"
+        f"📦 Jami: <b>{total}</b> ta | 💰 <b>{revenue:,} so'm</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+    )
+    if not chunk:
+        text += "\n📭 Bu davrda buyurtma yo'q"
+    else:
+        for o in chunk:
+            e = status_emoji.get(o.get("status", ""), "❓")
+            items_short = ", ".join(f"{i['emoji']}{i['name'][:8]}" for i in o.get("items", [])[:2])
+            if len(o.get("items", [])) > 2:
+                items_short += "..."
+            text += (
+                f"\n{e} <b>{o['id']}</b> — {o.get('name','—')}\n"
+                f"   📞 {o.get('phone','—')} | 💰 {o.get('total',0):,} so'm\n"
+                f"   🛍 {items_short or '—'}\n"
+                f"   🕐 {o.get('time','—')}\n"
+            )
+    if total_pages > 1:
+        text += f"\n━━━━━━━━━━━━━━━━━━\n📄 Sahifa {page+1}/{total_pages}"
+    return text, total_pages, page
+
+def build_history_kb(period: str, status: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    """Tarix tugmalari"""
+    # Period tugmalari
+    periods = [("📅 Bugun","today"),("📆 Hafta","week"),("🗓 Oy","month"),("📋 Hammasi","all")]
+    row1 = [
+        InlineKeyboardButton(
+            text=f"{'›' if p==period else ''}{label}{'‹' if p==period else ''}",
+            callback_data=f"hist_p:{p}:{status}:0"
+        ) for label, p in periods
+    ]
+    # Status tugmalari
+    statuses = [("⏳","pending"),("✅","confirmed"),("🚗","on_the_way"),("🎉","delivered"),("❌","cancelled"),("📋","all")]
+    row2 = [
+        InlineKeyboardButton(
+            text=f"[{e}]" if s==status else e,
+            callback_data=f"hist_s:{period}:{s}:0"
+        ) for e, s in statuses
+    ]
+    # Sahifa tugmalari
+    row3 = []
+    if total_pages > 1:
+        if page > 0:
+            row3.append(InlineKeyboardButton(text="⬅️", callback_data=f"hist_pg:{period}:{status}:{page-1}"))
+        row3.append(InlineKeyboardButton(text=f"{page+1}/{total_pages}", callback_data="hist_noop"))
+        if page < total_pages - 1:
+            row3.append(InlineKeyboardButton(text="➡️", callback_data=f"hist_pg:{period}:{status}:{page+1}"))
+
+    rows = [row1, row2]
+    if row3:
+        rows.append(row3)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+@dp.message(Command("tarix"))
+async def cmd_tarix(msg: Message):
+    uid = msg.from_user.id
+    if not (is_admin(uid) or is_courier(uid)):
+        await msg.answer("⛔ Ruxsat yo'q"); return
+    period, status = "today", "all"
+    order_list = filter_orders_by_period(period)
+    text, total_pages, page = build_history_text(order_list, period, status, 0)
+    kb = build_history_kb(period, status, 0, total_pages)
+    await msg.answer(text, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("hist_"))
+async def history_callback(cb: CallbackQuery):
+    uid = cb.from_user.id
+    if not (is_admin(uid) or is_courier(uid)):
+        await cb.answer("⛔ Ruxsat yo'q", show_alert=True); return
+    await cb.answer()
+    parts = cb.data.split(":")
+    action = parts[0]
+    if action == "hist_noop":
+        return
+    period = parts[1]
+    status = parts[2]
+    page   = int(parts[3]) if len(parts) > 3 else 0
+    order_list = filter_orders_by_period(period)
+    text, total_pages, page = build_history_text(order_list, period, status, page)
+    kb = build_history_kb(period, status, page, total_pages)
+    try:
+        await cb.message.edit_text(text, reply_markup=kb)
+    except: pass
+
 async def main():
     logger.info("🍰 Dilux Bakery Bot ishga tushdi!")
     await dp.start_polling(bot, drop_pending_updates=True)

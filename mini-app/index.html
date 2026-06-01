@@ -363,7 +363,7 @@ textarea.form-input{height:90px;resize:none;line-height:1.6}
       </div>
       <div class="hero-top-btns">
         <button class="admin-pill" id="install-pill" onclick="installApp()" title="Ilovani o'rnatish" style="display:none">📥</button>
-        <button class="admin-pill" onclick="openAdmin()" title="Admin">⚙️</button>
+        <button class="admin-pill" id="admin-pill-btn" onclick="openAdmin()" title="Admin" style="display:none">⚙️</button>
         <button class="lang-pill" onclick="toggleLang()" id="lang-btn">RU</button>
       </div>
     </div>
@@ -771,6 +771,15 @@ let pendingOrderData=null;
 const BOT_USERNAME = 'dilux_bakery_bot'; // @BotFather dan olgan bot username
 let editingProductId=null;
 
+// ══ ADMIN ANIQLASH ══ (config.py dagi ADMIN_IDS bilan bir xil bo'lsin)
+const ADMIN_IDS = [7375967525];
+function isAdminUser(){
+  try{
+    return !!(tg && tg.initDataUnsafe && tg.initDataUnsafe.user
+      && ADMIN_IDS.includes(tg.initDataUnsafe.user.id));
+  }catch(e){ return false; }
+}
+
 function getEffectivePrice(p){
   if(p.sale && p.sale>0) return Math.round(p.price*(1-p.sale/100));
   return p.price;
@@ -1146,7 +1155,10 @@ function toggleLang(){
 }
 
 // ═══ ADMIN ═══
-function openAdmin(){document.getElementById('admin-overlay').classList.add('open');renderAdmin();}
+function openAdmin(){
+  if(!isAdminUser()){ showToast(lang==='uz'?'Ruxsat yo\'q':'Нет доступа'); return; }
+  document.getElementById('admin-overlay').classList.add('open');renderAdmin();
+}
 function closeAdmin(){document.getElementById('admin-overlay').classList.remove('open');}
 function switchTab(tab,btn){
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
@@ -1359,6 +1371,8 @@ applyLang();
 buildSlides();
 renderP(products);
 renderBar();
+// Admin tugmasini faqat adminga ko'rsatamiz
+if(isAdminUser()) document.getElementById('admin-pill-btn').style.display='flex';
 </script>
 </body>
 </html>

@@ -968,10 +968,12 @@ function placeOrder(){
   // Checkoutni yopish
   document.getElementById('checkout-form').classList.remove('open');
 
-  // Telegram ichida: to'liq buyurtma ma'lumotini (mahsulotlar, telefon, summa)
-  // bot'ga sendData orqali yuboramiz — bu yagona ishonchli yo'l.
+  // Telegram'ga to'liq buyurtma ma'lumotini (mahsulotlar, telefon, summa)
+  // sendData orqali yuboramiz — bu yagona ishonchli yo'l.
   // Deep-link (?start=...) Telegram'da 64 belgidan oshmaydi, buyurtma sig'maydi.
-  if(tg && tg.initData && tg.initData.length > 0){
+  // initData tekshiruvi YO'Q — ba'zi qurilmalarda initData bo'sh bo'lsa ham
+  // sendData ishlaydi (Mini App bot tugmasi orqali ochilganda).
+  if(tg && typeof tg.sendData === 'function'){
     try{
       tg.sendData(JSON.stringify({action:'order_init',...order}));
       // Telegram ilovani avtomatik yopadi, bot to'lov ma'lumotini ko'rsatadi.
@@ -980,7 +982,7 @@ function placeOrder(){
     }catch(e){}
   }
 
-  // Zaxira yo'l (brauzer yoki tugmasiz ochilgan) — bot'ga yo'naltirish ekrani
+  // Zaxira yo'l (brauzer yoki sendData ishlamasa) — bot'ga yo'naltirish ekrani
   showBotRedirect(order);
 }
 

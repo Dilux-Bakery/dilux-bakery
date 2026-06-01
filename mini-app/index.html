@@ -707,6 +707,7 @@ const t = k => L[lang][k] || k;
 
 // ══ PROMO SLIDES ══
 const promos = [
+  {uz:{ribbon:'Yetkazib berish',title:'100 000 so\'mdan ortiq<br><em>bepul yetkazish</em>',desc:"100 000 so'mdan kam buyurtmaga 10 000 so'm",badge:'Bepul',badgeLabel:'yetkazish'},ru:{ribbon:'Доставка',title:'Заказ от 100 000 сум<br><em>бесплатная доставка</em>',desc:'До 100 000 сум — доставка 10 000 сум',badge:'Беспл.',badgeLabel:'доставка'},deco:'🚗'},
   {uz:{ribbon:'Maxsus taklif',title:'Bayram tortlari<br><em>buyurtmasi</em>',desc:'Har qanday tadbirga individual dizayn',badge:'-20%',badgeLabel:'chegirma'},ru:{ribbon:'Специальное предложение',title:'Праздничные торты<br><em>на заказ</em>',desc:'Индивидуальный дизайн для любого события',badge:'-20%',badgeLabel:'скидка'},deco:'🎂'},
   {uz:{ribbon:'Yangilik',title:'Frantsuz<br><em>eklerlar</em>',desc:"Parij konditeriyasi siri — endi bizda!",badge:'Yangi!',badgeLabel:'mahsulot'},ru:{ribbon:'Новинка',title:'Французские<br><em>эклеры</em>',desc:'Секрет парижских кондитеров — теперь у нас!',badge:'Новый!',badgeLabel:'продукт'},deco:'🍮'},
   {uz:{ribbon:'Haftalik aksiya',title:'2 ta olsang<br><em>3-si bepul</em>',desc:"Faqat shanba va yakshanba kunlari",badge:'2+1',badgeLabel:'bepul'},ru:{ribbon:'Акция недели',title:'Купи 2 —<br><em>3-й бесплатно</em>',desc:'Только в субботу и воскресенье',badge:'2+1',badgeLabel:'бесплатно'},deco:'🎁'},
@@ -892,6 +893,15 @@ function cartTotalAfterPromo(){
   if(!appliedPromo)return base;
   return Math.round(base*(1-appliedPromo.pct/100));
 }
+// ══ YETKAZIB BERISH HAQI ══
+// 100 000 so'mdan ortiq buyurtma — bepul; kam bo'lsa 10 000 so'm.
+// Faqat "yetkazib berish" da; "o'zi olib ketish" da haq yo'q.
+const FREE_DELIVERY_MIN=100000, DELIVERY_FEE=10000;
+function deliveryFee(){
+  if(deliveryType!=='delivery') return 0;
+  return cartTotalAfterPromo() < FREE_DELIVERY_MIN ? DELIVERY_FEE : 0;
+}
+function grandTotal(){ return cartTotalAfterPromo()+deliveryFee(); }
 function openCart(){renderCartBody();document.getElementById('ov-cart').classList.add('open');}
 function closeCart(e){if(e.target===document.getElementById('ov-cart'))document.getElementById('ov-cart').classList.remove('open');}
 function cQty(id,d){
@@ -908,11 +918,13 @@ function renderCartBody(){
   if(!cart.length){body.innerHTML=`<div class="empty-bag"><div>🛒</div><p>${t('emptyCart')}</p></div>`;cta.style.display='none';document.getElementById('promo-code-section').style.display='none';return;}
   document.getElementById('promo-code-section').style.display='block';
   const subtotal=cartTotal();
-  const finalTotal=cartTotalAfterPromo();
+  const finalTotal=grandTotal();
+  const fee=deliveryFee();
   const count=cart.reduce((s,i)=>s+i.qty,0);
   const discountRow=appliedPromo?`<div class="sum-row"><span class="sum-k">${t('discount')} (${appliedPromo.code})</span><span class="sum-v" style="color:var(--red)">-${appliedPromo.pct}%</span></div>`:'';
+  const deliveryVal = fee>0 ? `${fee.toLocaleString()} ${t('cur')}` : t('sf');
   body.innerHTML=cart.map(item=>`<div class="cart-row"><div class="cart-emoji">${item.emoji}</div><div class="cart-info"><div class="cart-item-name">${item[lang].name}</div><div class="cart-item-price">${(getEffectivePrice(item)*item.qty).toLocaleString()} ${t('cur')}</div></div><div class="cart-qty-wrap"><button class="cqb" onclick="cQty(${item.id},-1)">−</button><div class="cqn">${item.qty}</div><button class="cqb" onclick="cQty(${item.id},1)">+</button></div></div>`).join('')
-  +`<div class="cart-summary-box"><div class="sum-row"><span class="sum-k">${t('si')}</span><span class="sum-v">${count} ${t('pcs')}</span></div>${discountRow}<div class="sum-row"><span class="sum-k">${t('sd')}</span><span class="sum-v">${t('sf')}</span></div><div class="sum-divider"></div><div class="sum-row"><span class="sum-total-k">${t('st')}</span><span class="sum-total-v">${finalTotal.toLocaleString()} ${t('cur')}</span></div></div>`;
+  +`<div class="cart-summary-box"><div class="sum-row"><span class="sum-k">${t('si')}</span><span class="sum-v">${count} ${t('pcs')}</span></div>${discountRow}<div class="sum-row"><span class="sum-k">${t('sd')}</span><span class="sum-v">${deliveryVal}</span></div><div class="sum-divider"></div><div class="sum-row"><span class="sum-total-k">${t('st')}</span><span class="sum-total-v">${finalTotal.toLocaleString()} ${t('cur')}</span></div></div>`;
   cta.style.display='block';
 }
 
@@ -946,6 +958,7 @@ function selDelivery(el, type){
   // Manzil maydonini ko'rsatish/yashirish
   const addrSec=document.getElementById('address-section');
   addrSec.style.display = type==='delivery' ? 'block' : 'none';
+  renderCheckoutSummary(); // yetkazish haqi yangilansin
 }
 function selPay(el,method){
   payMethod=method;
@@ -956,9 +969,11 @@ function renderCheckoutSummary(){
   const subtotal=cartTotal();
   const final=cartTotalAfterPromo();
   const discountAmt=subtotal-final;
+  const fee=deliveryFee();
   let html=cart.map(i=>`<div class="osm-item"><span>${i.emoji} ${i[lang].name} ×${i.qty}</span><span>${(getEffectivePrice(i)*i.qty).toLocaleString()}</span></div>`).join('');
   if(discountAmt>0) html+=`<div class="osm-item" style="color:var(--red)"><span>${t('discount')} (${appliedPromo.code})</span><span>-${discountAmt.toLocaleString()}</span></div>`;
-  html+=`<div class="osm-total"><span class="osm-total-k">${t('st')}</span><span class="osm-total-v">${final.toLocaleString()} ${t('cur')}</span></div>`;
+  html+=`<div class="osm-item"><span>${t('sd')}</span><span>${fee>0?fee.toLocaleString()+' '+t('cur'):t('sf')}</span></div>`;
+  html+=`<div class="osm-total"><span class="osm-total-k">${t('st')}</span><span class="osm-total-v">${grandTotal().toLocaleString()} ${t('cur')}</span></div>`;
   document.getElementById('checkout-summary').innerHTML=html;
 }
 
@@ -971,7 +986,8 @@ function placeOrder(){
   if(deliveryType==='delivery' && !document.getElementById('fi-address').value.trim()){
     showToast('Manzilni kiriting'); return;
   }
-  const total=cartTotalAfterPromo();
+  const fee=deliveryFee();
+  const total=grandTotal();
   const order={
     id:`#${++orderCounter}`, status:'pending_confirmation',
     name, phone, address,
@@ -980,6 +996,7 @@ function placeOrder(){
     payment:payMethod,
     promo:appliedPromo?appliedPromo.code:null,
     items:cart.map(i=>({id:i.id,name:i[lang].name,emoji:i.emoji,qty:i.qty,price:getEffectivePrice(i)})),
+    deliveryFee:fee,
     total, time:new Date().toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'})
   };
   pendingOrderData=order;

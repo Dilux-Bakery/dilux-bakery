@@ -85,6 +85,9 @@ def order_text(o: dict) -> str:
     pay_txt = pay_map.get(o.get("payment", "card"), "💳 Karta")
     dtype   = "🚗 Yetkazib berish" if o.get("deliveryType") == "delivery" else "🏃 O'zi olib ketish"
     promo   = f"\n🏷 Promo: <b>{o['promo']}</b>" if o.get("promo") else ""
+    fee     = o.get("deliveryFee", 0)
+    if o.get("deliveryType") == "delivery":
+        dtype += " — Bepul" if not fee else f" — {fee:,} so'm"
     return (
         f"📦 Buyurtma <b>{o['id']}</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"

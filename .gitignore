@@ -4,6 +4,10 @@ config.py
 *.env
 .env
 
+# Buyurtmalar ma'lumotlari (mijoz ma'lumotlari — yuklamang!)
+bot/orders.json
+orders.json
+
 # Python
 __pycache__/
 *.py[cod]

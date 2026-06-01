@@ -965,18 +965,22 @@ function placeOrder(){
   // Mahalliy admin panelga qo'shish
   orders.push({...order, status:'new'});
 
-  // Telegram WebApp orqali data yuborish
-  // tg.sendData - bot orqali ochilganda ishlaydi
-  try{
-    if(tg && tg.initData && tg.initData.length > 0){
-      tg.sendData(JSON.stringify({action:'order_init',...order}));
-    }
-  }catch(e){}
-
   // Checkoutni yopish
   document.getElementById('checkout-form').classList.remove('open');
 
-  // Bot yo'naltirish ekranini ko'rsatish
+  // Telegram ichida: to'liq buyurtma ma'lumotini (mahsulotlar, telefon, summa)
+  // bot'ga sendData orqali yuboramiz — bu yagona ishonchli yo'l.
+  // Deep-link (?start=...) Telegram'da 64 belgidan oshmaydi, buyurtma sig'maydi.
+  if(tg && tg.initData && tg.initData.length > 0){
+    try{
+      tg.sendData(JSON.stringify({action:'order_init',...order}));
+      // Telegram ilovani avtomatik yopadi, bot to'lov ma'lumotini ko'rsatadi.
+      cart=[]; appliedPromo=null; renderBar(); renderP(filtered());
+      return;
+    }catch(e){}
+  }
+
+  // Zaxira yo'l (brauzer yoki tugmasiz ochilgan) — bot'ga yo'naltirish ekrani
   showBotRedirect(order);
 }
 

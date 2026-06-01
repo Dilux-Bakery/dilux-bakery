@@ -8,6 +8,7 @@ Ishlatish:
   python bot.py
 """
 
+import os
 import json
 import logging
 import asyncio
@@ -40,6 +41,29 @@ dp  = Dispatcher()
 orders:      dict = {}        # {order_id: {...}}
 pending_orders: dict = {}  # {user_id: order_id}
 user_states: dict = {}   # {user_id: {step, order_id}}
+
+# Buyurtmalar JSON faylga saqlanadi — bot qayta ishga tushganda yo'qolmaydi
+ORDERS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "orders.json")
+
+def save_orders():
+    """Buyurtmalarni diskka saqlash."""
+    try:
+        with open(ORDERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(orders, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Buyurtmalarni saqlashda xato: {e}")
+
+def load_orders():
+    """Buyurtmalarni diskdan o'qish (bot ishga tushganda)."""
+    global orders
+    if not os.path.exists(ORDERS_FILE):
+        return
+    try:
+        with open(ORDERS_FILE, "r", encoding="utf-8") as f:
+            orders = json.load(f)
+        logger.info(f"📂 {len(orders)} ta buyurtma yuklandi")
+    except Exception as e:
+        logger.error(f"Buyurtmalarni o'qishda xato: {e}")
 
 class Status:
     PENDING    = "pending"
@@ -97,6 +121,7 @@ async def cmd_start(msg: Message):
             data = json.loads(decoded)
             order_id = data.get("id", f"#unknown")
             orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
+            save_orders()
             user_states[uid] = {"step": "waiting_receipt", "order_id": order_id}
             total = data.get("total", 0)
             await msg.answer(
@@ -199,6 +224,7 @@ async def web_app_data(msg: Message):
         # Eski state ni tozalash (3-muammo hal)
         user_states.pop(uid, None)
         orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
+        save_orders()
         if uid in pending_orders:
             del pending_orders[uid]
         delivery_type = data.get("deliveryType", "delivery")
@@ -227,21 +253,19 @@ async def handle_photo(msg: Message):
 
     order_id = state["order_id"]
     if order_id not in orders:
-        # Pending order bo'lsa — minimal order yaratamiz
-        if uid in pending_orders or True:
-            orders[order_id] = {
-                "id": order_id, "status": Status.PENDING, "user_id": uid,
-                "name": msg.from_user.full_name,
-                "phone": "—", "address": "—", "comment": "",
-                "deliveryType": "delivery", "payment": "card",
-                "promo": None, "items": [], "total": 0,
-                "time": "—"
-            }
-        else:
-            await msg.answer("❌ Buyurtma topilmadi. /start bosing"); return
+        # Buyurtma ma'lumotlari kelmagan — bo'sh chek yubormaymiz.
+        # Foydalanuvchini Mini App tugmasi orqali qayta buyurtma berishga yo'naltiramiz.
+        user_states.pop(uid, None)
+        await msg.answer(
+            "❌ Buyurtma ma'lumotlari topilmadi.\n\n"
+            "Iltimos, <b>🛍 Buyurtma berish</b> tugmasi orqali\n"
+            "qaytadan buyurtma bering."
+        )
+        return
 
     o = orders[order_id]
     o["receipt_file_id"] = msg.photo[-1].file_id
+    save_orders()
 
     delivery_type = o.get("deliveryType", "delivery")
     if delivery_type == "delivery":
@@ -270,6 +294,7 @@ async def handle_location(msg: Message):
 
     o = orders[order_id]
     o["location"] = {"lat": msg.location.latitude, "lon": msg.location.longitude}
+    save_orders()
     user_states[uid]["step"] = "done"
     await finalize_order(msg, order_id)
 
@@ -323,6 +348,7 @@ async def callback_handler(cb: CallbackQuery):
         if o["status"] != Status.PENDING: await cb.answer("Allaqachon qayta ishlangan", show_alert=True); return
 
         o["status"] = Status.CONFIRMED
+        save_orders()
         await cb.message.edit_text(
             f"✅ <b>TASDIQLANDI</b>\n━━━━━━━━━━━━━━━━━━\n{order_text(o)}"
         )
@@ -367,6 +393,7 @@ async def callback_handler(cb: CallbackQuery):
         o = orders.get(order_id)
         if not o: return
         o["status"] = Status.CANCELLED
+        save_orders()
         await cb.message.edit_text(f"❌ <b>BEKOR QILINDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -385,6 +412,7 @@ async def callback_handler(cb: CallbackQuery):
         o = orders.get(order_id)
         if not o: return
         o["status"] = Status.ON_THE_WAY
+        save_orders()
         await cb.message.edit_text(
             f"🚗 <b>YO'LDA</b> — {order_id}\n{order_text(o)}",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -413,6 +441,7 @@ async def callback_handler(cb: CallbackQuery):
         o = orders.get(order_id)
         if not o: return
         o["status"] = Status.DELIVERED
+        save_orders()
         await cb.message.edit_text(f"🎉 <b>YETKAZILDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -739,6 +768,7 @@ async def history_callback(cb: CallbackQuery):
     except: pass
 
 async def main():
+    load_orders()
     logger.info("🍰 Dilux Bakery Bot ishga tushdi!")
     await dp.start_polling(bot, drop_pending_updates=True)
 

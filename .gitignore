@@ -8,6 +8,12 @@ config.py
 bot/orders.json
 orders.json
 
+# Google Service Account kaliti (MAXFIY — hech qachon yuklamang!)
+service_account.json
+bot/service_account.json
+mksheet.py
+bot/mksheet.py
+
 # Python
 __pycache__/
 *.py[cod]

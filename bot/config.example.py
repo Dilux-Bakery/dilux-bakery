@@ -18,3 +18,9 @@ MINI_APP_URL = "https://your-app.vercel.app"
 
 PAYMENT_CARD = "8600 XXXX XXXX XXXX"
 PAYMENT_NAME = "Dilux Bakery"
+
+# ── Google Sheets integratsiyasi (ixtiyoriy) ──
+# 1) Google Sheet yarating, SA email ga "Editor" qilib ulashing
+# 2) URL dan ID ni oling: docs.google.com/spreadsheets/d/<SHEET_ID>/edit
+SHEET_ID = ""                              # bo'sh bo'lsa Sheets o'chiq
+SERVICE_ACCOUNT_FILE = "service_account.json"

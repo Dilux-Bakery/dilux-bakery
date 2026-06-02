@@ -25,6 +25,10 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
 from config import BOT_TOKEN, ADMIN_IDS, COURIER_IDS, MINI_APP_URL, PAYMENT_CARD, PAYMENT_NAME
+import config as _cfg
+import google_sheets as sheets
+SHEET_ID = getattr(_cfg, "SHEET_ID", "")
+SERVICE_ACCOUNT_FILE = getattr(_cfg, "SERVICE_ACCOUNT_FILE", "service_account.json")
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -481,6 +485,8 @@ async def finalize_order(msg: Message, order_id: str):
     uid = msg.from_user.id
     # State ni tozalash - keyingi buyurtma uchun (3-muammo hal)
     user_states.pop(uid, None)
+    # Google Sheets ga yozish (asosiy oqimni bloklamaydi)
+    await asyncio.to_thread(sheets.append_order, o)
     await msg.answer(
         f"🎉 Buyurtmangiz adminga yuborildi!\n"
         f"🔖 ID: <b>{order_id}</b>\n\n"
@@ -553,6 +559,7 @@ async def callback_handler(cb: CallbackQuery):
 
         o["status"] = Status.CONFIRMED
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.CONFIRMED)
         # Admin xabariga "📦 Tayyor" tugmasi (kuryer hali yuborilmaydi)
         ready_kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="📦 Tayyor", callback_data=f"ready:{order_id}")
@@ -583,6 +590,7 @@ async def callback_handler(cb: CallbackQuery):
 
         o["status"] = Status.READY
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.READY)
         is_delivery = o.get("deliveryType") == "delivery"
 
         if is_delivery:
@@ -650,6 +658,7 @@ async def callback_handler(cb: CallbackQuery):
         if not o: return
         o["status"] = Status.DELIVERED
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.DELIVERED)
         await cb.message.edit_text(f"🎉 <b>TOPSHIRILDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -671,6 +680,7 @@ async def callback_handler(cb: CallbackQuery):
         if not o: return
         o["status"] = Status.CANCELLED
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.CANCELLED)
         await cb.message.edit_text(f"❌ <b>BEKOR QILINDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -690,6 +700,7 @@ async def callback_handler(cb: CallbackQuery):
         if not o: return
         o["status"] = Status.ON_THE_WAY
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.ON_THE_WAY)
         await cb.message.edit_text(
             f"🚗 <b>YO'LDA</b> — {order_id}\n{order_text(o)}",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
@@ -719,6 +730,7 @@ async def callback_handler(cb: CallbackQuery):
         if not o: return
         o["status"] = Status.DELIVERED
         save_orders()
+        await asyncio.to_thread(sheets.update_status, order_id, Status.DELIVERED)
         await cb.message.edit_text(f"🎉 <b>YETKAZILDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -1072,6 +1084,8 @@ async def history_callback(cb: CallbackQuery):
 
 async def main():
     load_orders()
+    sa_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), SERVICE_ACCOUNT_FILE)
+    sheets.init(sa_path, SHEET_ID)
     logger.info("🍰 Dilux Bakery Bot ishga tushdi!")
     await dp.start_polling(bot, drop_pending_updates=True)
 

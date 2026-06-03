@@ -457,7 +457,8 @@ async def handle_photo(msg: Message):
         await msg.answer(
             "✅ Chek qabul qilindi!\n\n"
             "📍 Endi <b>lokatsiyangizni</b> yuboring:\n"
-            "<i>📎 Qo'shimcha → Lokatsiya</i>"
+            "<i>📎 Qo'shimcha → Lokatsiya</i>\n\n"
+            "⚠️ <b>Diqqat:</b> yetkazib berish faqat <b>Namangan shahri</b> bo'ylab."
         )
     else:
         # O'zi olib ketish - lokatsiya shart emas, to'g'ridan finalize
@@ -538,7 +539,7 @@ async def callback_handler(cb: CallbackQuery):
         except: pass
         if dtype == "delivery":
             st["step"] = "await_address"
-            await cb.message.answer("📍 <b>Manzilingizni</b> yozing (ko'cha, uy):")
+            await cb.message.answer("📍 <b>Manzilingizni</b> yozing (ko'cha, uy):\n\n⚠️ Yetkazib berish faqat <b>Namangan shahri</b> bo'ylab.")
         else:
             st["address"] = "O'zi olib ketadi"
             st["step"] = "await_payment"

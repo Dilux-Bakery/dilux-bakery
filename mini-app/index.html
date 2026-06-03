@@ -508,6 +508,9 @@ textarea.form-input{height:90px;resize:none;line-height:1.6}
       </div>
     </div>
     <div class="address-section" id="address-section">
+      <div id="delivery-warn" style="background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.35);border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12px;color:var(--mocha);line-height:1.5">
+        📍 <b id="delivery-warn-text">Yetkazib berish faqat Namangan shahri bo'ylab amalga oshiriladi.</b>
+      </div>
       <div class="form-group" style="margin-top:14px">
         <label class="form-label" id="fl-address">Manzil</label>
         <input class="form-input" id="fi-address" type="text" placeholder="Ko'cha, uy raqami">
@@ -676,6 +679,7 @@ const L = {
     payCard:'Karta', payCardSub:'Uzcard/Humo',
     deliveryLabel:"Yetkazib berish", deliverySub:"Manzilingizga",
     pickupLabel:"O'zi olib ketish", pickupSub:"Do'kondan",
+    deliveryWarn:"Yetkazib berish faqat Namangan shahri bo'ylab amalga oshiriladi.",
     orderStatus:{new:'Yangi', done:"Bajarildi", cancel:'Bekor'},
     statusNew:'Yangi', statusDone:"Bajarildi", statusCancel:'Bekor',
   },
@@ -700,6 +704,7 @@ const L = {
     payCard:'Карта', payCardSub:'Uzcard/Humo',
     deliveryLabel:'Доставка', deliverySub:'На ваш адрес',
     pickupLabel:'Самовывоз', pickupSub:'Из магазина',
+    deliveryWarn:'Доставка осуществляется только по городу Наманган.',
     statusNew:'Новый', statusDone:'Выполнен', statusCancel:'Отменён',
   }
 };
@@ -708,7 +713,7 @@ const t = k => L[lang][k] || k;
 // ══ PROMO SLIDES ══
 const promos = [
   {uz:{ribbon:'Promo kod',title:'<em>DILUX</em> kodi bilan<br>10% chegirma',desc:"Savatda \"Dilux\" deb yozing va tejang",badge:'-10%',badgeLabel:'chegirma'},ru:{ribbon:'Промокод',title:'Скидка 10% с кодом<br><em>DILUX</em>',desc:'Введите \"Dilux\" в корзине',badge:'-10%',badgeLabel:'скидка'},deco:'🎁'},
-  {uz:{ribbon:'Yetkazib berish',title:'100 000 so\'mdan ortiq<br><em>bepul yetkazish</em>',desc:"100 000 so'mdan kam buyurtmaga 10 000 so'm",badge:'Bepul',badgeLabel:'yetkazish'},ru:{ribbon:'Доставка',title:'Заказ от 100 000 сум<br><em>бесплатная доставка</em>',desc:'До 100 000 сум — доставка 10 000 сум',badge:'Беспл.',badgeLabel:'доставка'},deco:'🚗'},
+  {uz:{ribbon:'Yetkazib berish',title:'100 000 so\'mdan ortiq<br><em>bepul yetkazish</em>',desc:"Namangan sh. bo'ylab • kam buyurtmaga 10 000 so'm",badge:'Bepul',badgeLabel:'yetkazish'},ru:{ribbon:'Доставка',title:'Заказ от 100 000 сум<br><em>бесплатная доставка</em>',desc:'По г. Наманган • до 100 000 — 10 000 сум',badge:'Беспл.',badgeLabel:'доставка'},deco:'🚗'},
   {uz:{ribbon:'Maxsus taklif',title:'Bayram tortlari<br><em>buyurtmasi</em>',desc:'Har qanday tadbirga individual dizayn',badge:'-20%',badgeLabel:'chegirma'},ru:{ribbon:'Специальное предложение',title:'Праздничные торты<br><em>на заказ</em>',desc:'Индивидуальный дизайн для любого события',badge:'-20%',badgeLabel:'скидка'},deco:'🎂'},
   {uz:{ribbon:'Yangilik',title:'Frantsuz<br><em>eklerlar</em>',desc:"Parij konditeriyasi siri — endi bizda!",badge:'Yangi!',badgeLabel:'mahsulot'},ru:{ribbon:'Новинка',title:'Французские<br><em>эклеры</em>',desc:'Секрет парижских кондитеров — теперь у нас!',badge:'Новый!',badgeLabel:'продукт'},deco:'🍮'},
   {uz:{ribbon:'Haftalik aksiya',title:'2 ta olsang<br><em>3-si bepul</em>',desc:"Faqat shanba va yakshanba kunlari",badge:'2+1',badgeLabel:'bepul'},ru:{ribbon:'Акция недели',title:'Купи 2 —<br><em>3-й бесплатно</em>',desc:'Только в субботу и воскресенье',badge:'2+1',badgeLabel:'бесплатно'},deco:'🎁'},
@@ -1231,6 +1236,7 @@ function applyFormLang(){
   document.getElementById('dsub-delivery').textContent=t('deliverySub');
   document.getElementById('dlabel-pickup').textContent=t('pickupLabel');
   document.getElementById('dsub-pickup').textContent=t('pickupSub');
+  var dw=document.getElementById('delivery-warn-text'); if(dw) dw.textContent=t('deliveryWarn');
 }
 function toggleLang(){
   lang=lang==='uz'?'ru':'uz';

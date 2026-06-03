@@ -707,6 +707,7 @@ const t = k => L[lang][k] || k;
 
 // ══ PROMO SLIDES ══
 const promos = [
+  {uz:{ribbon:'Promo kod',title:'<em>DILUX</em> kodi bilan<br>10% chegirma',desc:"Savatda \"Dilux\" deb yozing va tejang",badge:'-10%',badgeLabel:'chegirma'},ru:{ribbon:'Промокод',title:'Скидка 10% с кодом<br><em>DILUX</em>',desc:'Введите \"Dilux\" в корзине',badge:'-10%',badgeLabel:'скидка'},deco:'🎁'},
   {uz:{ribbon:'Yetkazib berish',title:'100 000 so\'mdan ortiq<br><em>bepul yetkazish</em>',desc:"100 000 so'mdan kam buyurtmaga 10 000 so'm",badge:'Bepul',badgeLabel:'yetkazish'},ru:{ribbon:'Доставка',title:'Заказ от 100 000 сум<br><em>бесплатная доставка</em>',desc:'До 100 000 сум — доставка 10 000 сум',badge:'Беспл.',badgeLabel:'доставка'},deco:'🚗'},
   {uz:{ribbon:'Maxsus taklif',title:'Bayram tortlari<br><em>buyurtmasi</em>',desc:'Har qanday tadbirga individual dizayn',badge:'-20%',badgeLabel:'chegirma'},ru:{ribbon:'Специальное предложение',title:'Праздничные торты<br><em>на заказ</em>',desc:'Индивидуальный дизайн для любого события',badge:'-20%',badgeLabel:'скидка'},deco:'🎂'},
   {uz:{ribbon:'Yangilik',title:'Frantsuz<br><em>eklerlar</em>',desc:"Parij konditeriyasi siri — endi bizda!",badge:'Yangi!',badgeLabel:'mahsulot'},ru:{ribbon:'Новинка',title:'Французские<br><em>эклеры</em>',desc:'Секрет парижских кондитеров — теперь у нас!',badge:'Новый!',badgeLabel:'продукт'},deco:'🍮'},
@@ -756,6 +757,7 @@ let products = [
 
 // ══ PROMO CODES ══
 let promoCodes = [
+  {code:'DILUX', pct:10, minOrder:0, active:true, desc:"Barcha buyurtmalarga 10% chegirma"},
   {code:'DILUX20', pct:20, minOrder:100000, active:true, desc:"100,000 so'mdan yuqori buyurtmalarga 20% chegirma"},
   {code:'YANGI10', pct:10, minOrder:0, active:true, desc:"Barcha buyurtmalarga 10% chegirma"},
   {code:'VIP30',   pct:30, minOrder:200000, active:false, desc:"200,000+ so'm buyurtmalarga 30% VIP chegirma"},
@@ -966,10 +968,23 @@ function openBotWithCart(){
     return;
   }
   const url = 'https://t.me/'+BOT_USERNAME+'?start=cart_'+enc;
-  const inTg = !isStandalone() && tg && tg.platform && tg.platform!=='unknown' && tg.openTelegramLink;
   cart=[]; appliedPromo=null; renderBar(); renderP(filtered());
-  if(inTg){ tg.openTelegramLink(url); setTimeout(()=>{try{tg.close()}catch(e){}},400); }
-  else { window.location.href = url; }  // OS Telegram ilovasini ochadi
+  gotoBot(url);
+}
+
+// Bot'ga o'tish — iOS uchun ham mustaqil ishlaydi.
+// Telegram ichida: openTelegramLink (platformga bog'liq emas — initData/user bilan aniqlaymiz).
+// Telegram tashqarisida (PWA/brauzer): location.href orqali Telegram ilovasi ochiladi.
+function gotoBot(url){
+  const real = tg && ((tg.initDataUnsafe && tg.initDataUnsafe.user) || (tg.platform && tg.platform!=='unknown'));
+  try{
+    if(real && typeof tg.openTelegramLink === 'function'){
+      tg.openTelegramLink(url);
+      setTimeout(()=>{try{tg.close()}catch(e){}}, 400);
+      return;
+    }
+  }catch(e){}
+  window.location.href = url;
 }
 function closeCheckout(){document.getElementById('checkout-form').classList.remove('open');}
 function selDelivery(el, type){
@@ -1139,11 +1154,8 @@ function showBotRedirect(order){
 }
 
 function openBot(){
-  // Oddiy bot havolasi — deep-link ma'lumot tashiy olmaydi (64 belgi limiti),
-  // shuning uchun foydalanuvchi botda "🛍 Buyurtma berish" tugmasi orqali beradi.
-  const url = `https://t.me/${BOT_USERNAME}`;
-  if(tg && tg.openTelegramLink) tg.openTelegramLink(url);
-  else window.open(url,'_blank');
+  // Oddiy bot havolasi — gotoBot iOS uchun ham ishlaydi.
+  gotoBot(`https://t.me/${BOT_USERNAME}`);
 }
 
 function copyOrderId(){

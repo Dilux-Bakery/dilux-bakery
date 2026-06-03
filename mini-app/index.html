@@ -939,10 +939,28 @@ function applyPromo(){
   if(!promo){msg.className='promo-msg err';msg.textContent='Noto\'g\'ri kod ❌';return;}
   const total=cartTotal();
   if(total<promo.minOrder){msg.className='promo-msg err';msg.textContent=`Minimal buyurtma: ${promo.minOrder.toLocaleString()} ${t('cur')}`;return;}
-  appliedPromo=promo;
-  msg.className='promo-msg ok';
-  msg.textContent=`✦ ${promo.pct}% chegirma qo'llandi!`;
-  renderCartBody();
+  // ── BIR MARTALIK: shu foydalanuvchi (ID) bu kodni avval ishlatganmi? ──
+  // Telegram CloudStorage — har akkaunt uchun, ishonchli (tozalab bo'lmaydi).
+  function applyOk(){
+    appliedPromo=promo;
+    msg.className='promo-msg ok';
+    msg.textContent=`✦ ${promo.pct}% chegirma qo'llandi!`;
+    renderCartBody();
+  }
+  if(tg && tg.CloudStorage && typeof tg.CloudStorage.getItem==='function'){
+    tg.CloudStorage.getItem('promo_used_'+code, function(err, val){
+      if(!err && val==='1'){
+        appliedPromo=null;
+        msg.className='promo-msg err';
+        msg.textContent='Bu promo kod allaqachon ishlatilgan ❌';
+        renderCartBody();
+      } else {
+        applyOk();
+      }
+    });
+  } else {
+    applyOk();  // brauzer (CloudStorage yo'q)
+  }
 }
 
 // CHECKOUT
@@ -1059,6 +1077,10 @@ function placeOrder(){
       sent=true;
     }catch(e){}
     if(sent){
+      // Promo kod ishlatildi — shu foydalanuvchi uchun "bir martalik" deb belgilaymiz
+      if(appliedPromo && tg.CloudStorage && typeof tg.CloudStorage.setItem==='function'){
+        try{ tg.CloudStorage.setItem('promo_used_'+appliedPromo.code, '1'); }catch(e){}
+      }
       cart=[]; appliedPromo=null; renderBar(); renderP(filtered());
       // sendData ishlasa — Telegram ilovani darrov yopadi va bu timer o'chadi.
       // Ilova yopilmasa = tugma orqali ochilmagan → foydalanuvchiga ko'rsatma.

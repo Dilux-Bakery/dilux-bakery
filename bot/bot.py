@@ -68,7 +68,7 @@ def load_orders():
         logger.info(f"📂 {len(orders)} ta buyurtma yuklandi")
         # order_seq ni mavjud eng katta ID dan boshlaymiz
         global order_seq
-        mx = 1000
+        mx = 0
         for k in orders:
             try: mx = max(mx, int(str(k).lstrip("#")))
             except ValueError: pass
@@ -137,7 +137,7 @@ def calc_delivery_fee(subtotal: int, delivery_type: str) -> int:
         return 0
     return 0 if subtotal >= FREE_DELIVERY_MIN else DELIVERY_FEE
 
-order_seq = 1000
+order_seq = 0
 def gen_order_id() -> str:
     global order_seq
     while True:
@@ -399,9 +399,11 @@ async def web_app_data(msg: Message):
         await msg.answer("❌ Xatolik yuz berdi"); return
 
     if data.get("action") == "order_init":
-        order_id = data["id"]
         # Eski state ni tozalash (3-muammo hal)
         user_states.pop(uid, None)
+        # Tartib raqamni BOT beradi (1 dan, ketma-ket) — mijoz id si e'tiborga olinmaydi
+        order_id = gen_order_id()
+        data["id"] = order_id
         orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
         save_orders()
         if uid in pending_orders:

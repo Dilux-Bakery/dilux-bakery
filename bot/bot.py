@@ -164,8 +164,11 @@ def order_text(o: dict) -> str:
     fee     = o.get("deliveryFee", 0)
     if o.get("deliveryType") == "delivery":
         dtype += " — Bepul" if not fee else f" — {fee:,} so'm"
+    ca = (o.get("created_at", "") or "")
+    dt_line = f"🕐 {ca[:10]} {ca[11:16]}\n" if ca else ""
     return (
         f"📦 Buyurtma <b>{o['id']}</b>\n"
+        f"{dt_line}"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"👤 <b>{o['name']}</b>\n"
         f"📞 <code>{o['phone']}</code>\n"

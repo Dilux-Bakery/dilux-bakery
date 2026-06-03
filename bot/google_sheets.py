@@ -46,9 +46,11 @@ def append_order(o: dict):
         items = ", ".join(f"{i.get('emoji','')}{i.get('name','')}×{i.get('qty',0)}"
                           for i in o.get("items", []))
         dtype = "Yetkazib berish" if o.get("deliveryType") == "delivery" else "O'zi olib ketish"
-        date = (o.get("created_at", "") or "")[:10]   # YYYY-MM-DD
+        ca = (o.get("created_at", "") or "")
+        date = ca[:10]            # YYYY-MM-DD (bot vaqti — Toshkent)
+        tm   = ca[11:16] or o.get("time", "")   # HH:MM
         row = [
-            o.get("id", ""), date, o.get("time", ""), o.get("name", ""),
+            o.get("id", ""), date, tm, o.get("name", ""),
             str(o.get("phone", "")), items, dtype, o.get("address", ""),
             int(o.get("deliveryFee", 0) or 0), int(o.get("total", 0) or 0),
             _pay(o.get("payment", "card")), _status(o.get("status", "pending")),

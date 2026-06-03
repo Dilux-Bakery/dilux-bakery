@@ -492,6 +492,7 @@ async def finalize_order(msg: Message, order_id: str):
     user_states.pop(uid, None)
     # Google Sheets ga yozish (asosiy oqimni bloklamaydi)
     await asyncio.to_thread(sheets.append_order, o)
+    await asyncio.to_thread(sheets.refresh_products, orders)
     await msg.answer(
         f"🎉 Buyurtmangiz adminga yuborildi!\n"
         f"🔖 ID: <b>{order_id}</b>\n\n"
@@ -686,6 +687,7 @@ async def callback_handler(cb: CallbackQuery):
         o["status"] = Status.CANCELLED
         save_orders()
         await asyncio.to_thread(sheets.update_status, order_id, Status.CANCELLED)
+        await asyncio.to_thread(sheets.refresh_products, orders)
         await cb.message.edit_text(f"❌ <b>BEKOR QILINDI</b> — {order_id}")
         if o.get("user_id"):
             try:
@@ -1091,6 +1093,7 @@ async def main():
     load_orders()
     sa_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), SERVICE_ACCOUNT_FILE)
     sheets.init(sa_path, SHEET_ID)
+    sheets.refresh_products(orders)   # boshlang'ich tahlil
     logger.info("🍰 Dilux Bakery Bot ishga tushdi!")
     await dp.start_polling(bot, drop_pending_updates=True)
 

@@ -250,7 +250,7 @@ async def cmd_start(msg: Message):
     kb = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🛍 Buyurtma berish", web_app=WebAppInfo(url=MINI_APP_URL))],
-            [KeyboardButton(text="📦 Buyurtmam")]
+            [KeyboardButton(text="📦 Buyurtmam"), KeyboardButton(text="📱 Ilovani o'rnatish")]
         ],
         resize_keyboard=True,
         persistent=True
@@ -393,6 +393,27 @@ async def handle_contact(msg: Message):
 @dp.message(F.text == "📦 Buyurtmam")
 async def btn_my_order(msg: Message):
     await cmd_my_order(msg)
+
+@dp.message(F.text == "📱 Ilovani o'rnatish")
+async def btn_install_app(msg: Message):
+    site = MINI_APP_URL.split("?")[0]
+    ikb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔗 Saytni ochish", url=site)
+    ]])
+    await msg.answer(
+        f"📱 <b>Ilovani telefonga o'rnatish</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"Bosh ekrandan tez kirish uchun do'konni ilova qilib qo'ying.\n\n"
+        f"🔗 <code>{site}</code>\n\n"
+        f"<b>📗 Android (Chrome):</b>\n"
+        f"1. Pastdagi «Saytni ochish» ni bosing\n"
+        f"2. ⋮ (uch nuqta) menu → <b>«Bosh ekranga qo'shish»</b>\n\n"
+        f"<b>🍎 iPhone (Safari):</b>\n"
+        f"1. Havolani <b>Safari</b>'da oching\n"
+        f"2. «Ulashish» ⬆️ → <b>«Bosh ekranga qo'shish»</b>\n\n"
+        f"✦ Tayyor — ikona bosh ekranда paydo bo'ladi, ilovadek ochiladi.",
+        reply_markup=ikb
+    )
 
 @dp.message(F.text == "📋 Tarix")
 async def btn_tarix(msg: Message):

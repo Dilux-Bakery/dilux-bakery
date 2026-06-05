@@ -87,6 +87,15 @@ class Status:
 def is_admin(uid):   return uid in ADMIN_IDS
 def is_courier(uid): return uid in COURIER_IDS
 
+def norm_phone(s: str) -> str:
+    """Telefonni +998 formatiga keltirish."""
+    d = "".join(ch for ch in (s or "") if ch.isdigit())
+    if len(d) == 12 and d.startswith("998"): return "+" + d
+    if len(d) == 9:  return "+998" + d
+    if len(d) == 10 and d.startswith("0"): return "+998" + d[1:]
+    if len(d) == 12: return "+" + d
+    return (s or "").strip()
+
 # ═══════════════════════════════════════════════
 #   MAHSULOT KATALOGI (mini-app bilan bir xil id lar)
 #   Haqiqiy ro'yxat tayyor bo'lganda shu yerni yangilang.
@@ -374,7 +383,7 @@ async def handle_contact(msg: Message):
     st = user_states.get(uid)
     if not st or st.get("step") != "await_phone":
         return
-    st["phone"] = msg.contact.phone_number
+    st["phone"] = norm_phone(msg.contact.phone_number)
     await msg.answer("✅ Rahmat!", reply_markup=ReplyKeyboardRemove())
     await ask_delivery_type(msg)
 
@@ -924,7 +933,7 @@ async def text_steps(msg: Message):
         return
     step = st.get("step")
     if step == "await_phone":
-        st["phone"] = msg.text.strip()
+        st["phone"] = norm_phone(msg.text)
         await msg.answer("✅ Rahmat!", reply_markup=ReplyKeyboardRemove())
         await ask_delivery_type(msg)
     elif step == "await_address":

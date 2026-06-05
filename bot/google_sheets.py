@@ -75,12 +75,12 @@ def refresh_products(orders: dict):
         data = sorted([[n,v[0],v[1]] for n,v in agg.items()], key=lambda x:(-x[1],-x[2]))
         ws.batch_clear(["A3:E1000"])
         if data:
-            totq = sum(d[1] for d in data) or 1
-            totr = sum(d[2] for d in data)
+            totq = sum(d[1] for d in data)
+            totr = sum(d[2] for d in data) or 1
             rows = []
             for i,(n,q,rev) in enumerate(data):
                 tip = "🥇 Yetakchi" if i==0 else "🥈 2-o'rin" if i==1 else "🥉 3-o'rin" if i==2 else ("⚠️ Eng kam" if i==len(data)-1 else "✅ Barqaror")
-                rows.append([n,q,rev,round(q*100/totq),tip])
+                rows.append([n,q,rev,round(rev*100/totr),tip])   # ulush = daromad bo'yicha
             rows.append(["JAMI",totq,totr,100,""])
             ws.update(range_name="A3", values=rows, value_input_option="RAW")
     except Exception as e:

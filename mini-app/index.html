@@ -1036,9 +1036,19 @@ function renderCheckoutSummary(){
   document.getElementById('checkout-summary').innerHTML=html;
 }
 
+// Telefonni +998 formatiga keltirish
+function normPhone(s){
+  const d=(s||'').replace(/\D/g,'');
+  if(d.length===12 && d.startsWith('998')) return '+'+d;
+  if(d.length===9) return '+998'+d;
+  if(d.length===10 && d.startsWith('0')) return '+998'+d.slice(1);
+  if(d.length===12) return '+'+d;
+  return (s||'').trim();
+}
+
 function placeOrder(){
   const name=document.getElementById('fi-name').value.trim();
-  const phone=document.getElementById('fi-phone').value.trim();
+  const phone=normPhone(document.getElementById('fi-phone').value);
   const address=deliveryType==='delivery' ? document.getElementById('fi-address').value.trim() : 'O\'zi olib ketadi';
   if(!name){showToast('Ismingizni kiriting'); return;}
   if(!phone){showToast('Telefon raqamni kiriting'); return;}

@@ -19,6 +19,7 @@ from aiogram.types import (
     Message, CallbackQuery,
     InlineKeyboardMarkup, InlineKeyboardButton,
     ReplyKeyboardMarkup, KeyboardButton, WebAppInfo, ReplyKeyboardRemove,
+    MenuButtonWebApp,
 )
 from aiogram.filters import CommandStart, Command
 from aiogram.enums import ParseMode
@@ -1126,6 +1127,13 @@ async def main():
     sa_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), SERVICE_ACCOUNT_FILE)
     sheets.init(sa_path, SHEET_ID)
     sheets.refresh_products(orders)   # boshlang'ich tahlil
+    # Pastdagi "Menu" tugmasini Mini App ga sozlash (mb=1 — cart-handoff majburlanadi)
+    try:
+        menu_url = MINI_APP_URL + ("&" if "?" in MINI_APP_URL else "?") + "mb=1"
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Buyurtma berish", web_app=WebAppInfo(url=menu_url)))
+        logger.info("📲 Menu tugma Mini App ga sozlandi")
+    except Exception as e:
+        logger.error(f"Menu tugma sozlashda xato: {e}")
     logger.info("🍰 Dilux Bakery Bot ishga tushdi!")
     await dp.start_polling(bot, drop_pending_updates=True)
 

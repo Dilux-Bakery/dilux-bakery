@@ -979,6 +979,8 @@ function goToCheckout(){
 }
 // Telegram ichida (mobil/desktop) bo'lmasa — bot'ga savat orqali yo'naltiramiz
 function useBotHandoff(){
+  // Menu tugmasi orqali ochilsa (?mb=1) — sendData ishlamaydi, cart-handoff majburlanadi
+  try{ if(new URLSearchParams(location.search).get('mb')==='1') return true; }catch(e){}
   return isStandalone() || !tg || !tg.platform || tg.platform==='unknown' || typeof tg.sendData!=='function';
 }
 // Savatni qisqa kod orqali bot'ga uzatish: t.me/bot?start=cart_1-2_5-1

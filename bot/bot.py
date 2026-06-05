@@ -416,7 +416,7 @@ async def web_app_data(msg: Message):
         # Tartib raqamni BOT beradi (1 dan, ketma-ket) — mijoz id si e'tiborga olinmaydi
         order_id = gen_order_id()
         data["id"] = order_id
-        data["phone"] = norm_phone(data.get("phone", ""))   # +998 formatlash (Netlify'ga bog'liq emas)
+        data["phone"] = norm_phone(data.get("phone", ""))   # +998 formatlash (server tomonida)
         orders[order_id] = {**data, "status": Status.PENDING, "user_id": uid, "created_at": datetime.now().isoformat()}
         save_orders()
         if uid in pending_orders:

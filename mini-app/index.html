@@ -345,6 +345,110 @@ textarea.form-input{height:90px;resize:none;line-height:1.6}
 .modal-cancel{width:100%;background:none;border:1px solid var(--border);border-radius:14px;padding:13px;font-family:'Jost',sans-serif;font-size:12px;color:var(--muted);cursor:pointer;margin-top:8px}
 .add-new-btn{width:100%;background:none;border:2px dashed rgba(201,168,76,.3);border-radius:14px;padding:15px;font-family:'Jost',sans-serif;font-size:13px;font-weight:300;color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;transition:all .2s}
 .add-new-btn:active{background:rgba(201,168,76,.06)}
+
+/* ═══════════════════════════════════════════════════════════
+   ✦ PREMIUM REDESIGN — Glassmorphism · Gradient · Smooth ✦
+   Faqat ko'rinish yangilandi; barcha class/ID/funksiya saqlangan
+   ═══════════════════════════════════════════════════════════ */
+:root{
+  --glass:rgba(255,255,255,.5);
+  --glass-strong:rgba(255,255,255,.72);
+  --glass-bd:rgba(255,255,255,.6);
+  --glass-sh:0 10px 36px rgba(90,55,20,.14), inset 0 1px 0 rgba(255,255,255,.65);
+  --grad-gold:linear-gradient(135deg,#e8c97a,#c9a84c);
+  --grad-dark:linear-gradient(135deg,#3a281b 0%,#1a1208 100%);
+  --glow-gold:0 8px 26px rgba(201,168,76,.45);
+}
+/* — Jonli gradient fon (mesh) — */
+body{background:linear-gradient(160deg,#fdf7f0 0%,#f7e9d8 55%,#f2dfca 100%)}
+body::before{
+  content:'';position:fixed;inset:-12%;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(38% 38% at 16% 18%, rgba(232,201,122,.55), transparent 70%),
+    radial-gradient(36% 36% at 84% 12%, rgba(244,176,150,.5), transparent 70%),
+    radial-gradient(44% 44% at 80% 80%, rgba(201,168,76,.4), transparent 70%),
+    radial-gradient(40% 40% at 14% 86%, rgba(255,205,170,.5), transparent 70%);
+  filter:blur(26px) saturate(120%);
+  animation:meshMove 22s ease-in-out infinite alternate;
+}
+@keyframes meshMove{0%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(2%,-2%,0) scale(1.07)}100%{transform:translate3d(-2%,2%,0) scale(1.04)}}
+body::after{opacity:.3}
+
+/* — Shisha sirtlar — */
+.card,.search-box,.order-card,.admin-stat-card,.admin-product-item,.promo-admin-item{
+  background:var(--glass)!important;
+  backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
+  border:1px solid var(--glass-bd)!important;box-shadow:var(--glass-sh)!important;
+}
+.sheet,.modal-sheet{
+  background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(253,247,240,.93))!important;
+  backdrop-filter:blur(30px) saturate(150%);-webkit-backdrop-filter:blur(30px) saturate(150%);
+  border-top:1px solid rgba(255,255,255,.6);box-shadow:0 -10px 50px rgba(26,18,8,.18);
+}
+.cart-summary-box,.order-summary-mini,.success-order-info,.bot-redirect-steps{
+  background:var(--glass-strong)!important;border:1px solid var(--glass-bd);backdrop-filter:blur(10px)
+}
+.cart-bar{
+  background:rgba(255,251,245,.58)!important;
+  backdrop-filter:blur(26px) saturate(160%);-webkit-backdrop-filter:blur(26px) saturate(160%);
+  border-top:1px solid rgba(255,255,255,.5)
+}
+
+/* — Kartalar: chuqurlik + silliq hover — */
+.card{transition:transform .4s cubic-bezier(.34,1.45,.5,1),box-shadow .4s,border-color .4s}
+.card:hover{transform:translateY(-5px);box-shadow:0 20px 46px rgba(90,55,20,.2),inset 0 1px 0 rgba(255,255,255,.7);border-color:rgba(232,201,122,.7)!important}
+.card:active{transform:scale(.97)}
+
+/* — Asosiy tugmalar: to'q gradient + oltin nur + shimmer — */
+.cart-bar-btn,.sheet-cta,.form-submit,.bot-open-btn,.success-back,.promo-apply-btn,.modal-submit{
+  background:var(--grad-dark)!important;position:relative;overflow:hidden;
+  box-shadow:0 10px 30px rgba(26,18,8,.3),inset 0 0 0 1px rgba(201,168,76,.25)!important;
+  transition:transform .2s,box-shadow .3s,filter .2s
+}
+.cart-bar-btn:hover,.sheet-cta:hover,.form-submit:hover,.bot-open-btn:hover,.success-back:hover,.modal-submit:hover{
+  filter:brightness(1.13);box-shadow:0 14px 40px rgba(26,18,8,.4),inset var(--glow-gold)!important
+}
+.cart-bar-btn::after,.sheet-cta::after,.form-submit::after{
+  content:'';position:absolute;top:0;left:-60%;width:38%;height:100%;
+  background:linear-gradient(120deg,transparent,rgba(232,201,122,.35),transparent);
+  transform:skewX(-20deg);animation:shimmer 5s ease-in-out infinite;pointer-events:none
+}
+@keyframes shimmer{0%,100%{left:-60%}48%,52%{left:130%}}
+
+/* — Qo'shish tugmalari — */
+.add-circle{background:var(--grad-dark)!important;box-shadow:0 4px 14px rgba(26,18,8,.3)}
+.add-circle:active{background:var(--grad-gold)!important;color:var(--dark)}
+
+/* — Kategoriya shisha pill — */
+.cat{background:var(--glass)!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.5)!important;box-shadow:0 4px 14px rgba(90,55,20,.08)}
+.cat.active{background:var(--grad-dark)!important;color:var(--gold2)!important;border-color:transparent!important;box-shadow:0 6px 20px rgba(26,18,8,.28)}
+
+/* — Inputlar — */
+.form-input,.modal-input,.promo-input{background:rgba(255,255,255,.6)!important;border:1px solid rgba(255,255,255,.55)!important}
+.form-input:focus,.modal-input:focus,.promo-input:focus{border-color:var(--gold)!important;box-shadow:0 0 0 3px rgba(201,168,76,.15)!important}
+
+/* — Yetkazish / to'lov tanlovlari — */
+.delivery-opt,.pay-opt{background:var(--glass)!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1.5px solid rgba(255,255,255,.55)!important;transition:all .25s}
+.delivery-opt.active,.pay-opt.active{border-color:var(--gold)!important;background:rgba(232,201,122,.2)!important;box-shadow:var(--glow-gold)}
+
+/* — Hero: boyroq nur — */
+.hero{background:var(--grad-dark)}
+.hero-bg{animation:heroGlow 9s ease-in-out infinite alternate}
+@keyframes heroGlow{from{opacity:.65}to{opacity:1}}
+.brand-name{text-shadow:0 2px 34px rgba(201,168,76,.3)}
+.lang-pill,.admin-pill{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:all .25s}
+.lang-pill:hover,.admin-pill:hover{background:rgba(201,168,76,.25);transform:translateY(-1px)}
+
+/* — Promo slider premium — */
+.promo-slider{box-shadow:0 16px 50px rgba(26,18,8,.3),0 0 0 1px rgba(201,168,76,.15)}
+.slide-badge{background:var(--grad-gold)!important;box-shadow:var(--glow-gold)}
+
+/* — Admin tablar / status pill silliq — */
+.admin-tab.active{background:var(--grad-gold)!important}
+.order-status,.detail-tag,.slide-ribbon{backdrop-filter:blur(6px)}
+
+/* — Detail hero yorqin ramka — */
+.detail-hero{box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),0 12px 36px rgba(90,55,20,.16)}
 </style>
 </head>
 <body>

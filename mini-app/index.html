@@ -500,11 +500,8 @@ body::after{opacity:.3}
 <div class="cats-wrap">
   <button class="cat active" onclick="setCat('all',this)">✦ <span class="t" data-uz="Barchasi" data-ru="Все">Barchasi</span></button>
   <button class="cat" onclick="setCat('cake',this)">🎂 <span class="t" data-uz="Tortlar" data-ru="Торты">Tortlar</span></button>
-  <button class="cat" onclick="setCat('candy',this)">🍬 <span class="t" data-uz="Konfetlar" data-ru="Конфеты">Konfetlar</span></button>
-  <button class="cat" onclick="setCat('cookie',this)">🍪 <span class="t" data-uz="Pechene" data-ru="Печенье">Pechene</span></button>
-  <button class="cat" onclick="setCat('icecream',this)">🍦 <span class="t" data-uz="Muzqaymoq" data-ru="Мороженое">Muzqaymoq</span></button>
-  <button class="cat" onclick="setCat('choco',this)">🍫 <span class="t" data-uz="Shokolad" data-ru="Шоколад">Shokolad</span></button>
-  <button class="cat" onclick="setCat('drink',this)">🥤 <span class="t" data-uz="Ichimliklar" data-ru="Напитки">Ichimliklar</span></button>
+  <button class="cat" onclick="setCat('candy',this)">🍮 <span class="t" data-uz="Desertlar" data-ru="Десерты">Desertlar</span></button>
+  <button class="cat" onclick="setCat('cookie',this)">🥐 <span class="t" data-uz="Pishiriqlar" data-ru="Выпечка">Pishiriqlar</span></button>
 </div>
 
 <!-- PRODUCTS -->
@@ -844,24 +841,25 @@ function startSlideTimer(){clearInterval(slideTimer);slideTimer=setInterval(()=>
 
 // ══ PRODUCTS ══
 let products = [
-  {id:1,emoji:'🎂',cat:'cake',price:150000,badge:'hot',sale:0,uz:{name:'Napoleon Tort',weight:'1 kg',desc:"Ko'p qavatli klassik tort, nozik krem va vanil ta'mi bilan."},ru:{name:'Торт Наполеон',weight:'1 кг',desc:'Многослойный классический торт с нежным кремом.'}},
-  {id:2,emoji:'🍰',cat:'cake',price:120000,badge:'new',sale:0,uz:{name:'Tiramisu',weight:'800 g',desc:"Italiyaning sevimli dessert — espresso va maskarpone kremidan tayyorlangan nafis shirinlik."},ru:{name:'Тирамису',weight:'800 г',desc:'Любимый десерт Италии — из эспрессо и крема маскарпоне.'}},
-  {id:3,emoji:'🧁',cat:'cake',price:28000,badge:null,sale:0,uz:{name:'Premium Kapkeyk',weight:'90 g',desc:"Kakaoli asosga qurilgan yumshoq kapkeyk, swiss merengu bilan bezatilgan."},ru:{name:'Премиум Капкейк',weight:'90 г',desc:'Мягкий капкейк на шоколадной основе со швейцарской меренгой.'}},
-  {id:4,emoji:'🎂',cat:'cake',price:200000,badge:'hot',sale:0,uz:{name:"Muss Tort",weight:'1.5 kg',desc:"Qo'lda bezatilgan, ichida shaftoli konfitüri bilan uch qavatli nozik tort."},ru:{name:'Муссовый Торт',weight:'1.5 кг',desc:'Трёхслойный нежный торт с персиковым конфитюром.'}},
-  {id:5,emoji:'🍮',cat:'cake',price:45000,badge:'new',sale:15,uz:{name:'Fransuz Ekler',weight:'120 g',desc:"Parij konditeriyasi klassikasi — engil krem bilan to'ldirilgan xrustli ekler."},ru:{name:'Французский Эклер',weight:'120 г',desc:'Классика парижской кондитерской — хрустящий эклер с лёгким кремом.'}},
-  {id:6,emoji:'🍬',cat:'candy',price:38000,badge:null,sale:0,uz:{name:'Assorted Konfet',weight:'500 g',desc:"Belgiya shokoladidan qo'lda tayyorlangan premium konfetlar to'plami."},ru:{name:'Ассорти Конфет',weight:'500 г',desc:'Набор премиальных конфет ручной работы из бельгийского шоколада.'}},
-  {id:7,emoji:'🍡',cat:'candy',price:22000,badge:null,sale:0,uz:{name:'Marmelad',weight:'300 g',desc:"Tabiiy meva sharbatlaridan tayyorlangan, yorqin rangli yumshoq marmeladlar."},ru:{name:'Мармелад',weight:'300 г',desc:'Мягкий мармелад из натуральных фруктовых соков, яркий и сочный.'}},
-  {id:8,emoji:'🍭',cat:'candy',price:15000,badge:null,sale:0,uz:{name:'Chupa Chups Mix',weight:'200 g',desc:"Har xil meva ta'mlarida chupa-chups to'plami."},ru:{name:'Чупа-Чупс Микс',weight:'200 г',desc:'Набор чупа-чупсов различных фруктовых вкусов.'}},
-  {id:9,emoji:'🍪',cat:'cookie',price:42000,badge:'new',sale:0,uz:{name:'Shokoladli Pechene',weight:'300 g',desc:"Yangi pishirilgan, xrustli tashqi va yumshoq shokolad markazli pechene."},ru:{name:'Шоколадное Печенье',weight:'300 г',desc:'Свежевыпеченное, хрустящее снаружи и мягкое с шоколадным центром.'}},
-  {id:10,emoji:'🧇',cat:'cookie',price:58000,badge:null,sale:0,uz:{name:'Vafli Tort',weight:'600 g',desc:"Xrustli vafli qatlamlari orasida kremli to'ldiriq."},ru:{name:'Вафельный Торт',weight:'600 г',desc:'Хрустящие вафельные коржи с кремовой прослойкой.'}},
-  {id:11,emoji:'🥐',cat:'cookie',price:18000,badge:'hot',sale:0,uz:{name:'Kruassan',weight:'100 g',desc:"Yangi pishirilgan, qatlama qoʻshimchali fransuz kruassani."},ru:{name:'Круассан',weight:'100 г',desc:'Свежевыпеченный слоёный французский круассан.'}},
-  {id:12,emoji:'🍦',cat:'icecream',price:20000,badge:null,sale:0,uz:{name:'Vanil Gelato',weight:'120 g',desc:"Italiya usulida tayyorlangan slivkali gelato, Madagaskar vanil podi bilan."},ru:{name:'Ванильный Джелато',weight:'120 г',desc:'Сливочный джелато по-итальянски с мадагаскарским стручком ванили.'}},
-  {id:13,emoji:'🍧',cat:'icecream',price:25000,badge:'new',sale:0,uz:{name:'Meva Sorbe',weight:'150 g',desc:"Muzlatilgan tabiiy meva sharbati — yengil va yangilovchi yoz ta'mi."},ru:{name:'Фруктовый Сорбет',weight:'150 г',desc:'Замороженный натуральный фруктовый сок — лёгкий и освежающий.'}},
-  {id:14,emoji:'🍫',cat:'choco',price:68000,badge:'hot',sale:0,uz:{name:'Belgiya Shokoladi',weight:'200 g',desc:"72% kakao, qo'lda tayyorlangan. Frantsuz ustalarining klassik retsepti asosida."},ru:{name:'Бельгийский Шоколад',weight:'200 г',desc:'72% какао, ручная работа. По классическому рецепту французских мастеров.'}},
-  {id:15,emoji:'🫖',cat:'choco',price:35000,badge:null,sale:0,uz:{name:'Ichimlik Shokolad',weight:'250 ml',desc:"Quyuq va qaynoq belgiya shokoladi — qishning eng iliq ichimlig'i."},ru:{name:'Горячий Шоколад',weight:'250 мл',desc:'Густой горячий бельгийский шоколад — самый тёплый напиток зимы.'}},
-  {id:16,emoji:'🥤',cat:'drink',price:22000,badge:null,sale:0,uz:{name:'Limonad',weight:'400 ml',desc:"Yangi limon va nanadan tayyorlangan uy limonadimiz."},ru:{name:'Лимонад',weight:'400 мл',desc:'Домашний лимонад из свежего лимона и мяты.'}},
-  {id:17,emoji:'☕',cat:'drink',price:28000,badge:'hot',sale:0,uz:{name:'Specialty Kofe',weight:'300 ml',desc:"Etiopia arabika donlaridan tayyorlangan alt'ernativ demlash usulida kofe."},ru:{name:'Спешелти Кофе',weight:'300 мл',desc:'Кофе из эфиопских зёрен арабики, приготовленный альтернативным методом.'}},
-  {id:18,emoji:'🧋',cat:'drink',price:32000,badge:'new',sale:0,uz:{name:'Boba Tea',weight:'400 ml',desc:"Tayvan uslubidagi taro yoki shaftoli ta'mli marvarid choy."},ru:{name:'Боба Чай',weight:'400 мл',desc:'Жемчужный чай в тайваньском стиле со вкусом таро или персика.'}},
+  {id:1,emoji:'🎂',cat:'cake',price:180000,badge:'hot',sale:0,uz:{name:'Napalyon',weight:'1 kg',desc:"Ming qatlamli xamir, klassik krem va vanil ta'mi."},ru:{name:'Наполеон',weight:'1 кг',desc:'Многослойный классический торт с нежным кремом.'}},
+  {id:2,emoji:'🍰',cat:'cake',price:180000,badge:null,sale:0,uz:{name:'Tvarojniy',weight:'1 kg',desc:"Tvorogli, nordon-shirin nafis ta'mli tort."},ru:{name:'Творожный',weight:'1 кг',desc:'Творожный торт с нежным кисло-сладким вкусом.'}},
+  {id:3,emoji:'🍫',cat:'cake',price:180000,badge:null,sale:0,uz:{name:'Avganiskiy',weight:'1 kg',desc:"Quyuq, to'yimli afg'oncha tort."},ru:{name:'Афганский',weight:'1 кг',desc:'Насыщенный, сытный афганский торт.'}},
+  {id:4,emoji:'🍋',cat:'cake',price:200000,badge:'new',sale:0,uz:{name:'Limonchella',weight:'1 kg',desc:"Limonli, mayin va xushbo'y tort."},ru:{name:'Лимончелла',weight:'1 кг',desc:'Лимонный, нежный и ароматный торт.'}},
+  {id:5,emoji:'🍫',cat:'cake',price:150000,badge:null,sale:0,uz:{name:'Praga',weight:'1 kg',desc:'Shokoladli klassik Praga torti.'},ru:{name:'Прага',weight:'1 кг',desc:'Классический шоколадный торт Прага.'}},
+  {id:6,emoji:'🎂',cat:'cake',price:150000,badge:null,sale:0,uz:{name:'Sparta',weight:'1 kg',desc:'Shokoladli qatlamlar, nozik krem bilan.'},ru:{name:'Спарта',weight:'1 кг',desc:'Шоколадные коржи с нежным кремом.'}},
+  {id:7,emoji:'🎂',cat:'cake',price:100000,badge:'new',sale:0,uz:{name:'Bento',weight:'1 dona',desc:'Kichik shaxsiy tort, qutisi bilan.'},ru:{name:'Бенто',weight:'1 шт',desc:'Маленький персональный торт в коробке.'}},
+  {id:8,emoji:'🎂',cat:'cake',price:120000,badge:null,sale:0,uz:{name:'5 kishilik Tort',weight:'5 kishi',desc:'5 kishiga bayram torti.'},ru:{name:'Торт на 5 человек',weight:'5 чел',desc:'Праздничный торт на 5 человек.'}},
+  {id:9,emoji:'🎂',cat:'cake',price:150000,badge:null,sale:0,uz:{name:'10 kishilik Tort',weight:'10 kishi',desc:"Nachinkasiga qarab 150–250 ming so'm."},ru:{name:'Торт на 10 человек',weight:'10 чел',desc:'В зависимости от начинки: 150–250 тыс.'}},
+  {id:10,emoji:'🎂',cat:'cake',price:250000,badge:null,sale:0,uz:{name:'Standart Tort',weight:'1 dona',desc:"Standart o'lcham: 250–280 ming so'm."},ru:{name:'Стандартный торт',weight:'1 шт',desc:'Стандартный размер: 250–280 тыс.'}},
+  {id:11,emoji:'🎂',cat:'cake',price:350000,badge:'hot',sale:0,uz:{name:'Fotiha Tort',weight:'maxsus',desc:"To'y va fotiha uchun: 350 mingdan 100$ gacha."},ru:{name:'Праздничный торт (Фотиха)',weight:'особый',desc:'Для торжеств: от 350 тыс. до 100$.'}},
+  {id:12,emoji:'🧀',cat:'candy',price:30000,badge:null,sale:0,uz:{name:'Sansibastiyan chiskeyk',weight:"1 bo'lak",desc:'Bask uslubidagi chizkeyk. Butuni 230 ming.'},ru:{name:'Чизкейк Сан-Себастьян',weight:'1 кусок',desc:'Баскский чизкейк. Целый — 230 тыс.'}},
+  {id:13,emoji:'🧁',cat:'candy',price:10000,badge:null,sale:0,uz:{name:'Musviy',weight:'1 dona',desc:'Yengil mussli desert. Kattasi 25 ming.'},ru:{name:'Мусс',weight:'1 шт',desc:'Лёгкий муссовый десерт. Большой — 25 тыс.'}},
+  {id:14,emoji:'🍌',cat:'candy',price:65000,badge:null,sale:0,uz:{name:'Bananchi shirinligi',weight:'1 dona',desc:"Bananli, yumshoq va to'yimli shirinlik."},ru:{name:'Банановый десерт',weight:'1 шт',desc:'Банановый, мягкий и сытный десерт.'}},
+  {id:15,emoji:'🥮',cat:'cookie',price:80000,badge:null,sale:0,uz:{name:'Paxlava',weight:'1 kg',desc:"Asalli, yong'oqli paxlava. Butuni 150 ming."},ru:{name:'Пахлава',weight:'1 кг',desc:'Медовая пахлава с орехами. Целая — 150 тыс.'}},
+  {id:16,emoji:'🥧',cat:'cookie',price:65000,badge:null,sale:0,uz:{name:'Tvarogli posochniy',weight:'1 kg',desc:'Tvorogli qumoq (pesochniy) pishiriq.'},ru:{name:'Творожный песочный',weight:'1 кг',desc:'Творожная песочная выпечка.'}},
+  {id:17,emoji:'🥐',cat:'cookie',price:55000,badge:null,sale:0,uz:{name:'Ragali',weight:'1 kg',desc:"Murabbo to'ldirilgan yumshoq rogalik."},ru:{name:'Рогалики',weight:'1 кг',desc:'Мягкие рогалики с джемом.'}},
+  {id:18,emoji:'🧁',cat:'cookie',price:4000,badge:null,sale:0,uz:{name:'Tartaletka',weight:'1 dona',desc:'Mevali mayda tartaletka.'},ru:{name:'Тарталетка',weight:'1 шт',desc:'Маленькая тарталетка с фруктами.'}},
+  {id:19,emoji:'🍰',cat:'cookie',price:4000,badge:null,sale:0,uz:{name:'Muravinik',weight:'1 dona',desc:"An'anaviy 'chumolitepa' shirinligi."},ru:{name:'Муравейник',weight:'1 шт',desc:'Традиционный десерт «Муравейник».'}},
 ];
 
 // ══ PROMO CODES ══

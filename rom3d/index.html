@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Imzo Namangan — 3D rom va eshik</title>
+<meta name="theme-color" content="#1a140f">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;color:#f7f2ea;background:#15100b}
+#c{position:fixed;inset:0;display:block;touch-action:none}
+#top{position:absolute;top:0;left:0;right:0;z-index:5;padding:calc(env(safe-area-inset-top,0px) + 16px) 20px 26px;text-align:center;pointer-events:none;
+  background:linear-gradient(180deg,rgba(12,9,6,.72),rgba(12,9,6,0))}
+#top .eyebrow{font-size:11px;letter-spacing:.32em;color:#d9c29a;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#top .title{font-size:20px;font-weight:600;margin-top:4px;text-shadow:0 1px 6px rgba(0,0,0,.55)}
+#top .sub{font-size:12.5px;color:#cdbfa8;margin-top:2px;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;font-size:13px;color:rgba(247,242,234,.7);pointer-events:none;transition:opacity .5s;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+#hint.gone{opacity:0}
+#bottom{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:40px 16px calc(env(safe-area-inset-bottom,0px) + 18px);
+  display:flex;flex-direction:column;gap:12px;align-items:center;background:linear-gradient(0deg,rgba(12,9,6,.82),rgba(12,9,6,0))}
+.seg{display:flex;background:rgba(20,15,10,.6);border:1px solid rgba(217,194,154,.25);border-radius:13px;padding:4px;gap:4px}
+.seg button{border:none;background:transparent;color:#cdbfa8;padding:9px 20px;border-radius:10px;font-size:14px;font-weight:500}
+.seg button.on{background:#c2a06b;color:#1a140f}
+.mainrow{display:flex;gap:10px;align-items:center}
+.openbtn{height:52px;padding:0 30px;border:none;border-radius:14px;background:#c2a06b;color:#1a140f;font-size:16px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.openbtn .ic{font-size:18px}
+.icon{height:52px;width:52px;border-radius:14px;border:1px solid #c2a06b;background:rgba(26,20,15,.55);color:#d9c29a;font-size:20px;display:flex;align-items:center;justify-content:center}
+.spec{font-size:12px;color:#bdb09c;letter-spacing:.02em;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#rec{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:16px;z-index:6;height:40px;padding:0 14px;border-radius:30px;
+  border:1px solid rgba(217,194,154,.5);background:rgba(20,15,10,.55);color:#d9c29a;font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:7px}
+#rec.busy{opacity:.6}
+#rec .dot{width:8px;height:8px;border-radius:50%;background:#c2a06b}
+.spin{position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;background:rgba(16,12,8,.7);font-size:14px;color:#d9c29a}
+.hidden{display:none}
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="top">
+  <div class="eyebrow">Imzo Namangan</div>
+  <div class="title" id="title">Eshik · TERMO65</div>
+  <div class="sub" id="sub">Ikki tavaqali · Дуб Мокко</div>
+</div>
+
+<button id="rec"><span class="dot"></span> Video</button>
+<div id="hint">Aylantirish uchun barmoq bilan suring</div>
+
+<div id="bottom">
+  <div class="seg" id="seg">
+    <button data-p="door" class="on">🚪 Eshik</button>
+    <button data-p="window">🪟 Oyna</button>
+  </div>
+  <div class="mainrow">
+    <button class="openbtn" id="openBtn"><span class="ic">⇲</span><span id="openLbl">Ochish</span></button>
+    <button class="icon" id="resetView" title="Ko‘rinish">⟲</button>
+  </div>
+  <div class="spec" id="spec"></div>
+</div>
+
+<div id="spinner" class="spin hidden">Video tayyorlanmoqda…</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+// soft studio gradient backdrop (so glass transmits a believable light)
+function gradTex(stops){ const c=document.createElement('canvas'); c.width=8; c.height=512;
+  const g=c.getContext('2d'); const lin=g.createLinearGradient(0,0,0,512);
+  stops.forEach(s=>lin.addColorStop(s[0],s[1])); g.fillStyle=lin; g.fillRect(0,0,8,512);
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t; }
+scene.background = gradTex([[0,'#b9ac97'],[0.45,'#7d7160'],[1,'#2b2219']]);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 0.05, 100);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.enablePan = false;
+controls.minDistance = 1.0; controls.maxDistance = 9;
+controls.minPolarAngle = 0.55; controls.maxPolarAngle = Math.PI*0.6;
+controls.autoRotate = true; controls.autoRotateSpeed = 0.8;
+controls.addEventListener('start', ()=>{ controls.autoRotate=false; document.getElementById('hint').classList.add('gone'); });
+
+// lighting: warm sun (exterior) + cool sky fill
+const hemi = new THREE.HemisphereLight(0xdde8ff, 0x4a3a2a, 0.7); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1d8, 2.6);
+sun.position.set(-3.5, 5, -3); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.near=0.5; sun.shadow.camera.far=25;
+sun.shadow.camera.left=-4; sun.shadow.camera.right=4; sun.shadow.camera.top=5; sun.shadow.camera.bottom=-2;
+sun.shadow.bias=-0.0002; sun.shadow.normalBias=0.02; scene.add(sun);
+const fill = new THREE.DirectionalLight(0xfff4e6, 0.9); fill.position.set(4,3,5); scene.add(fill);
+
+// ---------- materials ----------
+const COLORS = { mocco:0x47331f, oltin:0x7a4a1e, antratsit:0x33363a, oq:0xe9ebe6 };
+const woodTexCache = {};
+function woodTexture(hex){
+  if(woodTexCache[hex]) return woodTexCache[hex];
+  const c=document.createElement('canvas'); c.width=512; c.height=512; const g=c.getContext('2d');
+  const base=new THREE.Color(hex);
+  g.fillStyle='#'+base.getHexString(); g.fillRect(0,0,512,512);
+  for(let i=0;i<140;i++){ const x=Math.random()*512; const w=0.6+Math.random()*2.4;
+    const dark=Math.random()<0.5; const a=0.04+Math.random()*0.10;
+    g.strokeStyle=`rgba(${dark?20:255},${dark?12:240},${dark?6:220},${a})`; g.lineWidth=w;
+    g.beginPath(); g.moveTo(x,0);
+    for(let y=0;y<=512;y+=32){ g.lineTo(x+Math.sin(y*0.03+i)*3, y); } g.stroke(); }
+  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  woodTexCache[hex]=t; return t;
+}
+function woodMat(hex){ return new THREE.MeshPhysicalMaterial({ map:woodTexture(hex), color:0xffffff,
+  roughness:0.42, metalness:0.0, clearcoat:0.28, clearcoatRoughness:0.45, envMapIntensity:0.7, sheen:0.1 }); }
+const glassMat = new THREE.MeshPhysicalMaterial({ color:0xedf5f4, metalness:0, roughness:0.02,
+  transmission:1.0, transparent:true, thickness:0.5, ior:1.5, reflectivity:0.55, envMapIntensity:1.7,
+  attenuationDistance:6, attenuationColor:0xd6e8e6, side:THREE.DoubleSide });
+const metalMat = new THREE.MeshStandardMaterial({ color:0x9a9ca0, roughness:0.28, metalness:0.95, envMapIntensity:1.3 });
+const wallMat = new THREE.MeshStandardMaterial({ color:0xccc3b4, roughness:0.96, metalness:0 });
+const floorMat = new THREE.MeshStandardMaterial({ color:0x6f6354, roughness:0.85, metalness:0 });
+
+function rbox(w,h,d,mat){ w=Math.max(w,0.002);h=Math.max(h,0.002);d=Math.max(d,0.002);
+  const r=Math.min(0.012, w*0.45, h*0.45, d*0.45);
+  const m=new THREE.Mesh(new RoundedBoxGeometry(w,h,d,2,r),mat); m.castShadow=true; m.receiveShadow=true; return m; }
+
+// leaf (sash): chamfered frame + recessed glazing bead + transparent glass; local origin bottom-left
+function buildLeaf(w,h,frameHex,withHandle,handleSide){
+  const g = new THREE.Group();
+  const lt = Math.min(0.07, w*0.16), d = 0.058, mat = woodMat(frameHex);
+  const top=rbox(w,lt,d,mat); top.position.set(w/2, h-lt/2, 0);
+  const bot=rbox(w,lt,d,mat); bot.position.set(w/2, lt/2, 0);
+  const lef=rbox(lt,h-2*lt,d,mat); lef.position.set(lt/2, h/2, 0);
+  const rig=rbox(lt,h-2*lt,d,mat); rig.position.set(w-lt/2, h/2, 0);
+  g.add(top,bot,lef,rig);
+  // glazing bead (thin inner frame, proud toward front)
+  const bt=0.018, bd=0.02, iw=w-2*lt, ih=h-2*lt;
+  const beadMat=mat;
+  const bTop=rbox(iw,bt,bd,beadMat); bTop.position.set(w/2, h-lt-bt/2, d/2-bd/2+0.004);
+  const bBot=rbox(iw,bt,bd,beadMat); bBot.position.set(w/2, lt+bt/2, d/2-bd/2+0.004);
+  const bLef=rbox(bt,ih-2*bt,bd,beadMat); bLef.position.set(lt+bt/2, h/2, d/2-bd/2+0.004);
+  const bRig=rbox(bt,ih-2*bt,bd,beadMat); bRig.position.set(w-lt-bt/2, h/2, d/2-bd/2+0.004);
+  g.add(bTop,bBot,bLef,bRig);
+  // recessed glass
+  const glass=new THREE.Mesh(new THREE.BoxGeometry(iw-2*bt, ih-2*bt, 0.012), glassMat);
+  glass.position.set(w/2, h/2, -0.004); g.add(glass);
+  if(withHandle){
+    const hx = handleSide==='left' ? lt+0.03 : w-lt-0.03;
+    const hy = Math.min(h*0.5, 1.05);
+    const rose=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.02,20),metalMat);
+    rose.rotation.x=Math.PI/2; rose.position.set(hx,hy,d/2+0.01); rose.castShadow=true; g.add(rose);
+    const lever=new THREE.Mesh(new RoundedBoxGeometry(0.13,0.022,0.026,2,0.01),metalMat);
+    lever.position.set(handleSide==='left'?hx+0.05:hx-0.05, hy-0.05, d/2+0.035); lever.castShadow=true; g.add(lever);
+  }
+  return g;
+}
+
+const openables=[]; let unit=null;
+function disposeUnit(){ if(!unit) return; unit.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); scene.remove(unit); unit=null; openables.length=0; }
+
+function build(spec){
+  disposeUnit();
+  const root=new THREE.Group();
+  const mat=woodMat(spec.color);
+  const {W,H,D,ft}=spec, isDoor=spec.mode==='door';
+
+  // ---- wall surround (installed look) with opening cut out ----
+  const mSide=0.55, mTop=0.55, mBot=isDoor?0:0.6, wallD=0.32;
+  const shape=new THREE.Shape();
+  shape.moveTo(-W/2-mSide, (isDoor?0:-mBot));
+  shape.lineTo(W/2+mSide, (isDoor?0:-mBot));
+  shape.lineTo(W/2+mSide, H+mTop);
+  shape.lineTo(-W/2-mSide, H+mTop);
+  shape.lineTo(-W/2-mSide, (isDoor?0:-mBot));
+  const hole=new THREE.Path();
+  hole.moveTo(-W/2,0); hole.lineTo(W/2,0); hole.lineTo(W/2,H); hole.lineTo(-W/2,H); hole.lineTo(-W/2,0);
+  shape.holes.push(hole);
+  const wall=new THREE.Mesh(new THREE.ExtrudeGeometry(shape,{depth:wallD,bevelEnabled:false}), wallMat);
+  wall.position.z=-wallD/2; wall.receiveShadow=true; wall.castShadow=true; root.add(wall);
+
+  // outer frame (chamfered)
+  const top=rbox(W,ft,D,mat); top.position.set(0, H-ft/2, 0);
+  const bot=rbox(W,ft,D,mat); bot.position.set(0, ft/2, 0);
+  const lef=rbox(ft,H-2*ft,D,mat); lef.position.set(-W/2+ft/2, H/2, 0);
+  const rig=rbox(ft,H-2*ft,D,mat); rig.position.set(W/2-ft/2, H/2, 0);
+  root.add(top,bot,lef,rig);
+
+  const innerH=H-2*ft;
+  let x=-W/2+ft;
+  const usableW=W-2*ft;
+  spec.sashes.forEach((s,i)=>{
+    const slotW=s.w;
+    if(i<spec.sashes.length-1){ const mull=rbox(ft*0.7, innerH, D, mat); mull.position.set(x+slotW+ft*0.35, H/2, 0); root.add(mull); }
+    const gap=0.012, lw=slotW-2*gap, lh=innerH-2*gap;
+    const x0=x+gap, y0=ft+gap, z=0.006;
+    if(s.type==='fixed'){ const leaf=buildLeaf(lw,lh,spec.color,false); leaf.position.set(x0,y0,z); root.add(leaf); }
+    else if(s.type==='tilt'){ const pivot=new THREE.Group(); pivot.position.set(x0,y0,z);
+      const leaf=buildLeaf(lw,lh,spec.color,true,'left'); pivot.add(leaf); root.add(pivot); openables.push({pivot,axis:'x',open:0.22}); }
+    else { const hingeLeft=(s.type==='turnLeft'||s.type==='doorLeft'), dr=s.type.startsWith('door');
+      const pivot=new THREE.Group(); const leaf=buildLeaf(lw,lh,spec.color,true, hingeLeft?'right':'left');
+      if(hingeLeft){ pivot.position.set(x0,y0,z); } else { pivot.position.set(x0+lw,y0,z); leaf.position.x=-lw; }
+      pivot.add(leaf); root.add(pivot);
+      const ang=dr?1.4:0.95; openables.push({pivot,axis:'y',open: hingeLeft?ang:-ang}); }
+    x+=slotW+(i<spec.sashes.length-1?ft*0.7:0);
+  });
+
+  // windowsill / floor
+  if(isDoor){
+    const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8), floorMat);
+    floor.rotation.x=-Math.PI/2; floor.position.set(0,0,0.6); floor.receiveShadow=true; root.add(floor);
+    const thr=rbox(W+0.1,0.04,0.34,woodMat(spec.color)); thr.position.set(0,0.02,0.17); root.add(thr);
+  } else {
+    const sill=rbox(W+0.34,0.045,0.3,woodMat(spec.color)); sill.position.set(0,-0.01,0.16); root.add(sill);
+    const apron=new THREE.Mesh(new THREE.PlaneGeometry(8,8), floorMat); // backdrop floor far below
+    apron.rotation.x=-Math.PI/2; apron.position.set(0,-mBot-0.0,0.6); apron.receiveShadow=true; root.add(apron);
+  }
+
+  const wrap=new THREE.Group(); wrap.add(root); scene.add(wrap); unit=wrap;
+  const box=new THREE.Box3().setFromObject(top).union(new THREE.Box3().setFromObject(bot));
+  unit.userData.fit={W:W+1.0, H:H+0.4, cy:H/2};
+  frameCamera(unit.userData.fit); setProgressInstant(0);
+}
+
+function frameCamera({W,H,cy}){
+  controls.target.set(0, cy, 0);
+  const fov=camera.fov*Math.PI/180;
+  const fitH=(H*0.6)/Math.tan(fov/2);
+  const fitW=(W*0.6)/Math.tan(fov/2)/camera.aspect;
+  const dist=Math.max(fitH,fitW,1.4);
+  camera.position.set(dist*0.4, cy + H*0.10, dist*0.9);
+  camera.near=0.05; camera.far=dist*8; camera.updateProjectionMatrix();
+  controls.update();
+}
+
+// ---------- animation ----------
+let prog=0, target=0;
+function ease(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+function applyProgress(p){ const e=ease(p); for(const o of openables) o.pivot.rotation[o.axis]=o.open*e; }
+function setProgressInstant(p){ prog=p; target=p; applyProgress(p); }
+
+const SPECS = {
+  door: { mode:'door', W:1.07,H:2.31,D:0.09,ft:0.085, color:COLORS.mocco,
+    sashes:[{w:0.495,type:'doorLeft'},{w:0.495,type:'doorRight'}],
+    title:'Eshik · TERMO65', sub:'Ikki tavaqali · Дуб Мокко', spec:'1070 × 2310 mm · ichkariga ochiladi' },
+  window: { mode:'window', W:1.76,H:1.66,D:0.08,ft:0.072, color:COLORS.mocco,
+    sashes:[{w:0.59,type:'turnLeft'},{w:0.58,type:'fixed'},{w:0.59,type:'turnRight'}],
+    title:'Oyna · 6000 TRIO', sub:'Uch tavaqali · Дуб Мокко', spec:'1760 × 1660 mm · 2 ochiladigan + 1 kar' }
+};
+let current='door';
+function setProduct(p){ current=p; const s=SPECS[p]; build(s);
+  document.getElementById('title').textContent=s.title; document.getElementById('sub').textContent=s.sub;
+  document.getElementById('spec').textContent=s.spec;
+  [...document.getElementById('seg').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  controls.autoRotate=true; setOpen(false); }
+let openState=false;
+function setOpen(o){ target=o?1:0; document.getElementById('openLbl').textContent=o?'Yopish':'Ochish'; openState=o; }
+
+// ---------- parametric: build any rom from URL params (for QR deep-links) ----------
+// e.g. ?t=window&w=1760&h=1660&c=mocco&s=L590-F580-RT590   |   ?t=door&w=1070&h=2310&s=DL-DR
+const COLOR_NAME = { mocco:'Дуб Мокко', oltin:'Oltin dub', antratsit:'Antratsit (7016)', oq:'Oq' };
+const SASH_MAP = { F:'fixed', L:'turnLeft', R:'turnRight', T:'tilt', RT:'turnRight', LT:'turnLeft', DL:'doorLeft', DR:'doorRight' };
+function cfgFromParams(q){
+  const type = q.get('t')==='door' ? 'door' : 'window';
+  const w = +q.get('w') || (type==='door'?1070:1760);
+  const h = +q.get('h') || (type==='door'?2310:1660);
+  const cid = (q.get('c')||'mocco').toLowerCase();
+  const color = COLORS[cid] !== undefined ? COLORS[cid] : COLORS.mocco;
+  let raw = q.get('s');
+  if(!raw) raw = type==='door' ? 'DL-DR' : 'L-F-R';
+  const parts = raw.split('-').filter(Boolean);
+  const widths = parts.map(p => parseInt((p.match(/\d+/)||[0])[0]) || 0);
+  const sumW = widths.reduce((a,b)=>a+b,0);
+  const sashes = parts.map((p,i)=>{
+    const code = (p.match(/[A-Za-z]+/)||['F'])[0].toUpperCase();
+    const frac = sumW>0 && widths[i]>0 ? widths[i]/sumW : 1/parts.length;
+    return { w:(w/1000)*frac, type: SASH_MAP[code]||'fixed' };
+  });
+  const nOpen = sashes.filter(s=>s.type!=='fixed').length;
+  const nFix  = sashes.filter(s=>s.type==='fixed').length;
+  const sub = type==='door'
+    ? `${sashes.length} tavaqali · ${COLOR_NAME[cid]||'Дуб Мокко'}`
+    : `${sashes.length} tavaqali · ${COLOR_NAME[cid]||'Дуб Мокко'}`;
+  const specTxt = type==='door'
+    ? `${w} × ${h} mm · ichkariga ochiladi`
+    : `${w} × ${h} mm · ${nOpen} ochiladigan${nFix?` + ${nFix} kar`:''}`;
+  return { mode:type, W:w/1000, H:h/1000, D:type==='door'?0.09:0.08, ft:type==='door'?0.085:0.072,
+    color, sashes, title: type==='door'?'Eshik · TERMO65':'Oyna · 6000 TRIO', sub, spec:specTxt,
+    label: q.get('n') ? ('Pozitsiya '+q.get('n')) : '' };
+}
+function buildParam(s){
+  current = s.mode; build(s);
+  document.getElementById('title').textContent = s.title;
+  document.getElementById('sub').textContent = s.sub;
+  document.getElementById('spec').textContent = s.spec;
+  if(s.label){ document.querySelector('#top .eyebrow').textContent = 'Imzo Namangan · ' + s.label; }
+  document.getElementById('seg').style.display = 'none';  // single rom from QR — hide product switch
+  controls.autoRotate = true; setOpen(false);
+}
+
+document.getElementById('seg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) setProduct(b.dataset.p); });
+document.getElementById('openBtn').addEventListener('click',()=>{ setOpen(!openState); document.getElementById('hint').classList.add('gone'); });
+document.getElementById('resetView').addEventListener('click',()=>{ frameCamera(unit.userData.fit); controls.autoRotate=true; });
+
+let needsRender=true;
+function resize(){ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight,false); needsRender=true; }
+addEventListener('resize', resize); resize();
+controls.addEventListener('change', ()=>{ needsRender=true; });
+
+function loop(){ requestAnimationFrame(loop);
+  const animating = Math.abs(target-prog) > 0.0006;
+  if(animating){ prog+=(target-prog)*0.09; applyProgress(prog); needsRender=true; }
+  if(controls.autoRotate) needsRender=true;
+  controls.update();
+  if(needsRender){ renderer.render(scene,camera); needsRender=false; }
+}
+const QS = new URLSearchParams(location.search);
+if(QS.has('t') || QS.has('w') || QS.has('s')){ buildParam(cfgFromParams(QS)); }
+else { setProduct('door'); }
+loop();
+setTimeout(()=>setOpen(true), 900);
+
+// ---------- Video export (MediaRecorder) ----------
+const recBtn=document.getElementById('rec');
+recBtn.addEventListener('click', ()=>{
+  if(recBtn.classList.contains('busy')) return;
+  if(!window.MediaRecorder || !canvas.captureStream){ alert('Bu brauzer video yozishni qo‘llamaydi. Ekrandan jonli ko‘rsating.'); return; }
+  recBtn.classList.add('busy');
+  const spinner=document.getElementById('spinner'); spinner.classList.remove('hidden');
+  const mimes=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  let mime=''; for(const m of mimes){ if(MediaRecorder.isTypeSupported(m)){ mime=m; break; } }
+  const wasAuto=controls.autoRotate; controls.autoRotate=true;
+  const stream=canvas.captureStream(30);
+  const mr=new MediaRecorder(stream, mime?{mimeType:mime, videoBitsPerSecond:8000000}:undefined);
+  const chunks=[]; mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+  mr.onstop=()=>{ const type=mime||'video/webm', ext=type.indexOf('mp4')>=0?'mp4':'webm';
+    const blob=new Blob(chunks,{type}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=current+'-imzo-namangan.'+ext; a.click();
+    spinner.classList.add('hidden'); recBtn.classList.remove('busy'); controls.autoRotate=wasAuto;
+    window.__vidSize=blob.size; window.__vidDone=true; };
+  setOpen(false); mr.start();
+  setTimeout(()=>setOpen(true), 600);
+  setTimeout(()=>setOpen(false), 2700);
+  setTimeout(()=>mr.stop(), 4700);
+});
+</script>
+</body>
+</html>
